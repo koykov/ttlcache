@@ -3,9 +3,10 @@ package ttlcache
 import "sync"
 
 type bucket[T any] struct {
-	mux sync.RWMutex
-	idx map[uint64]uint
-	buf []entry[T]
+	size uint64
+	mux  sync.RWMutex
+	idx  map[uint64]uint
+	buf  []entry[T]
 }
 
 func (b *bucket[T]) set(hkey uint64, value T) error {

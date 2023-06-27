@@ -1,6 +1,9 @@
 package ttlcache
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type Cache[T any] struct {
 	o       sync.Once
@@ -34,7 +37,30 @@ func (c *Cache[T]) init() {
 		c.err = ErrNoBuckets
 		return
 	}
-	// ...
+
+	var bsize uint64
+	if c.conf.Size > 0 {
+		bsize = c.conf.Size / uint64(c.conf.Buckets)
+	}
+	c.buckets = make([]bucket[T], c.conf.Buckets)
+	for i := uint(0); i < c.conf.Buckets; i++ {
+		c.buckets[i].size = bsize
+	}
+
+	if c.conf.TTLInterval > 0 {
+		if c.conf.TTLInterval < time.Second {
+			c.err = ErrShortTTL
+			return
+		}
+		if c.conf.EvictInterval == 0 {
+			c.conf.EvictInterval = c.conf.TTLInterval / 2
+		}
+		c.conf.Clock.Schedule(c.conf.EvictInterval, func() {
+			if err := c.evict(); err != nil && c.l() != nil {
+				c.l().Printf("eviction failed with error %s\n", err.Error())
+			}
+		})
+	}
 }
 
 func (c *Cache[T]) Set(key string, value T) error {
@@ -55,4 +81,13 @@ func (c *Cache[T]) Get(key string) (T, error) {
 	hkey := c.conf.Hasher.Sum64(key)
 	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
 	return b.get(hkey)
+}
+
+func (c *Cache[T]) evict() error {
+	// ...
+	return nil
+}
+
+func (c *Cache[T]) l() Logger {
+	return c.conf.Logger
 }

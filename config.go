@@ -8,6 +8,7 @@ type Config struct {
 	Hasher        Hasher
 	TTLInterval   time.Duration
 	EvictInterval time.Duration
+	EvictWorkers  uint
 	Clock         Clock
 	Logger        Logger
 }

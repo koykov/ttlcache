@@ -55,6 +55,9 @@ func (c *Cache[T]) init() {
 		if c.conf.EvictInterval == 0 {
 			c.conf.EvictInterval = c.conf.TTLInterval / 2
 		}
+		if c.conf.EvictWorkers == 0 {
+			c.conf.EvictWorkers = defaultEvictWorkers
+		}
 		c.conf.Clock.Schedule(c.conf.EvictInterval, func() {
 			if err := c.evict(); err != nil && c.l() != nil {
 				c.l().Printf("eviction failed with error %s\n", err.Error())

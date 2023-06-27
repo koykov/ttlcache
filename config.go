@@ -8,3 +8,8 @@ type Config struct {
 	Hasher         Hasher
 	ExpireInterval time.Duration
 }
+
+func (c *Config) Copy() *Config {
+	cpy := *c
+	return &cpy
+}

@@ -10,8 +10,31 @@ type Cache[T any] struct {
 	err error
 }
 
+func New[T any](conf *Config) (*Cache[T], error) {
+	c := &Cache[T]{
+		conf: conf.Copy(),
+	}
+	c.o.Do(c.init)
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c, nil
+}
+
 func (c *Cache[T]) init() {
-	//
+	if c.conf == nil {
+		c.err = ErrNoConfig
+		return
+	}
+	if c.conf.Hasher == nil {
+		c.err = ErrNoHasher
+		return
+	}
+	if c.conf.Buckets == 0 {
+		c.err = ErrNoBuckets
+		return
+	}
+	// ...
 }
 
 func (c *Cache[T]) Set(key string, value T) error {

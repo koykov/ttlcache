@@ -1,11 +1,9 @@
 package ttlcache
 
-import (
-	"sync"
-	"time"
-)
+import "sync"
 
 type bucket[T any] struct {
+	conf *Config
 	size uint64
 	mux  sync.RWMutex
 	idx  map[uint64]uint
@@ -19,14 +17,14 @@ func (b *bucket[T]) set(hkey uint64, value T) error {
 		b.buf[i] = entry[T]{
 			payload:   value,
 			hkey:      hkey,
-			timestamp: time.Now().UnixNano(),
+			timestamp: b.conf.Clock.Now().UnixNano(),
 		}
 		return nil
 	}
 	b.buf = append(b.buf, entry[T]{
 		payload:   value,
 		hkey:      hkey,
-		timestamp: time.Now().UnixNano(),
+		timestamp: b.conf.Clock.Now().UnixNano(),
 	})
 	b.idx[hkey] = uint(len(b.buf))
 	return nil

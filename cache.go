@@ -42,9 +42,12 @@ func (c *Cache[T]) init() {
 	if c.conf.Size > 0 {
 		bsize = c.conf.Size / uint64(c.conf.Buckets)
 	}
-	c.buckets = make([]bucket[T], c.conf.Buckets)
+	c.buckets = make([]bucket[T], 0, c.conf.Buckets)
 	for i := uint(0); i < c.conf.Buckets; i++ {
-		c.buckets[i].size = bsize
+		c.buckets = append(c.buckets, bucket[T]{
+			conf: c.conf,
+			size: bsize,
+		})
 	}
 
 	if c.conf.TTLInterval > 0 {

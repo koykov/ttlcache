@@ -1,6 +1,9 @@
 package ttlcache
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type bucket[T any] struct {
 	size uint64
@@ -10,11 +13,34 @@ type bucket[T any] struct {
 }
 
 func (b *bucket[T]) set(hkey uint64, value T) error {
-	_, _ = hkey, value
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	if i, ok := b.idx[hkey]; ok {
+		b.buf[i] = entry[T]{
+			payload:   value,
+			hkey:      hkey,
+			timestamp: time.Now().UnixNano(),
+		}
+		return nil
+	}
+	b.buf = append(b.buf, entry[T]{
+		payload:   value,
+		hkey:      hkey,
+		timestamp: time.Now().UnixNano(),
+	})
+	b.idx[hkey] = uint(len(b.buf))
 	return nil
 }
 
 func (b *bucket[T]) get(hkey uint64) (T, error) {
-	_ = hkey
-	return any(nil), nil
+	b.mux.RLock()
+	defer b.mux.RUnlock()
+	var (
+		i  uint
+		ok bool
+	)
+	if i, ok = b.idx[hkey]; ok {
+		return b.buf[i].payload, nil
+	}
+	return any(nil), ErrNotFound
 }

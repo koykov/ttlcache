@@ -4,6 +4,7 @@ import "sync"
 
 type bucket[T any] struct {
 	conf *Config
+	id   string
 	size uint64
 	mux  sync.RWMutex
 	idx  map[uint64]uint
@@ -13,12 +14,14 @@ type bucket[T any] struct {
 func (b *bucket[T]) set(hkey uint64, value T) error {
 	b.mux.Lock()
 	defer b.mux.Unlock()
+	now := b.clk().Now()
 	if i, ok := b.idx[hkey]; ok {
 		b.buf[i] = entry[T]{
 			payload:   value,
 			hkey:      hkey,
 			timestamp: b.conf.Clock.Now().UnixNano(),
 		}
+		b.mw().Set(b.id, b.clk().Now().Sub(now))
 		return nil
 	}
 	b.buf = append(b.buf, entry[T]{
@@ -27,6 +30,7 @@ func (b *bucket[T]) set(hkey uint64, value T) error {
 		timestamp: b.conf.Clock.Now().UnixNano(),
 	})
 	b.idx[hkey] = uint(len(b.buf))
+	b.mw().Set(b.id, b.clk().Now().Sub(now))
 	return nil
 }
 
@@ -37,8 +41,19 @@ func (b *bucket[T]) get(hkey uint64) (T, error) {
 		i  uint
 		ok bool
 	)
+	now := b.clk().Now()
 	if i, ok = b.idx[hkey]; ok {
+		b.mw().Hit(b.id, b.clk().Now().Sub(now))
 		return b.buf[i].payload, nil
 	}
+	b.mw().Miss(b.id)
 	return any(nil), ErrNotFound
+}
+
+func (b *bucket[T]) mw() MetricsWriter {
+	return b.conf.MetricsWriter
+}
+
+func (b *bucket[T]) clk() Clock {
+	return b.conf.Clock
 }

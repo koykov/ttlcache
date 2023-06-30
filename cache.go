@@ -1,6 +1,7 @@
 package ttlcache
 
 import (
+	"strconv"
 	"sync"
 	"time"
 )
@@ -38,6 +39,10 @@ func (c *Cache[T]) init() {
 		return
 	}
 
+	if c.conf.MetricsWriter == nil {
+		c.conf.MetricsWriter = DummyMetrics{}
+	}
+
 	var bsize uint64
 	if c.conf.Size > 0 {
 		bsize = c.conf.Size / uint64(c.conf.Buckets)
@@ -46,6 +51,7 @@ func (c *Cache[T]) init() {
 	for i := uint(0); i < c.conf.Buckets; i++ {
 		c.buckets = append(c.buckets, bucket[T]{
 			conf: c.conf,
+			id:   strconv.Itoa(int(i)),
 			size: bsize,
 		})
 	}

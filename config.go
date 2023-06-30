@@ -9,6 +9,7 @@ type Config struct {
 	TTLInterval   time.Duration
 	EvictInterval time.Duration
 	EvictWorkers  uint
+	MetricsWriter MetricsWriter
 	Clock         Clock
 	Logger        Logger
 }

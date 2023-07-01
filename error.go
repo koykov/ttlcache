@@ -8,4 +8,5 @@ var (
 	ErrNoBuckets = errors.New("buckets must be greater than zero")
 	ErrShortTTL  = errors.New("TTL must be greater than one second")
 	ErrNotFound  = errors.New("entry not found")
+	ErrExpire    = errors.New("entry expired")
 )

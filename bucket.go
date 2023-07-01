@@ -43,8 +43,14 @@ func (b *bucket[T]) get(hkey uint64) (T, error) {
 	)
 	now := b.clk().Now()
 	if i, ok = b.idx[hkey]; ok {
-		b.mw().Hit(b.id, b.clk().Now().Sub(now))
-		return b.buf[i].payload, nil
+		e := &b.buf[i]
+		now1 := b.clk().Now()
+		if e.timestamp < now1.UnixNano() {
+			b.mw().Expire(b.id)
+			return any(nil), ErrExpire
+		}
+		b.mw().Hit(b.id, now1.Sub(now))
+		return e.payload, nil
 	}
 	b.mw().Miss(b.id)
 	return any(nil), ErrNotFound

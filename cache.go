@@ -68,7 +68,7 @@ func (c *Cache[T]) init() {
 			c.conf.EvictWorkers = defaultEvictWorkers
 		}
 		c.conf.Clock.Schedule(c.conf.EvictInterval, func() {
-			if err := c.evict(); err != nil && c.l() != nil {
+			if err := c.bulkEvict(); err != nil && c.l() != nil {
 				c.l().Printf("eviction failed with error %s\n", err.Error())
 			}
 		})
@@ -95,8 +95,38 @@ func (c *Cache[T]) Get(key string) (T, error) {
 	return b.get(hkey)
 }
 
-func (c *Cache[T]) evict() error {
-	// ...
+func (c *Cache[T]) bulkEvict() error {
+	var workers = c.conf.EvictWorkers
+	if c.conf.Buckets < workers {
+		workers = c.conf.Buckets
+	}
+	bucketQueue := make(chan uint, workers)
+	var wg sync.WaitGroup
+	for i := uint(0); i < workers; i++ {
+		wg.Add(1)
+		go func(i uint) {
+			defer wg.Done()
+			for {
+				if idx, ok := <-bucketQueue; ok {
+					_ = c.buckets[idx].evict()
+					continue
+				}
+				break
+			}
+		}(i)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := uint(0); i < workers; i++ {
+			bucketQueue <- i
+		}
+		close(bucketQueue)
+	}()
+
+	wg.Wait()
+
 	return nil
 }
 

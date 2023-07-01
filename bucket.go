@@ -56,6 +56,11 @@ func (b *bucket[T]) get(hkey uint64) (T, error) {
 	return any(nil), ErrNotFound
 }
 
+func (b *bucket[T]) evict() error {
+	// ...
+	return nil
+}
+
 func (b *bucket[T]) mw() MetricsWriter {
 	return b.conf.MetricsWriter
 }

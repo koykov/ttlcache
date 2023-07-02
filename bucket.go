@@ -47,13 +47,13 @@ func (b *bucket[T]) get(hkey uint64) (T, error) {
 		now1 := b.clk().Now()
 		if e.timestamp < now1.UnixNano() {
 			b.mw().Expire(b.id)
-			return any(nil), ErrExpire
+			return t_.(T), ErrExpire
 		}
 		b.mw().Hit(b.id, now1.Sub(now))
 		return e.payload, nil
 	}
 	b.mw().Miss(b.id)
-	return any(nil), ErrNotFound
+	return t_.(T), ErrNotFound
 }
 
 func (b *bucket[T]) evict() error {

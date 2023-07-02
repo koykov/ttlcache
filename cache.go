@@ -88,7 +88,7 @@ func (c *Cache[T]) Set(key string, value T) error {
 func (c *Cache[T]) Get(key string) (T, error) {
 	c.o.Do(c.init)
 	if c.err != nil {
-		return any(nil), c.err
+		return t_.(T), c.err
 	}
 	hkey := c.conf.Hasher.Sum64(key)
 	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
@@ -133,3 +133,5 @@ func (c *Cache[T]) bulkEvict() error {
 func (c *Cache[T]) l() Logger {
 	return c.conf.Logger
 }
+
+var t_ any = nil

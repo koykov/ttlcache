@@ -29,7 +29,7 @@ func (b *bucket[T]) set(hkey uint64, value T) error {
 		hkey:      hkey,
 		timestamp: b.conf.Clock.Now().UnixNano(),
 	})
-	b.idx[hkey] = uint(len(b.buf))
+	b.idx[hkey] = uint(len(b.buf) - 1)
 	b.mw().Set(b.id, b.clk().Now().Sub(now))
 	return nil
 }

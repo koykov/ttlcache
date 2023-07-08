@@ -10,6 +10,7 @@ type Cache[T any] struct {
 	o       sync.Once
 	conf    *Config
 	buckets []bucket[T]
+	null    T
 
 	err error
 }
@@ -43,6 +44,13 @@ func (c *Cache[T]) init() {
 		c.conf.MetricsWriter = DummyMetrics{}
 	}
 
+	if c.conf.Clock == nil {
+		c.conf.Clock = &NativeClock{}
+	}
+	if !c.conf.Clock.Active() {
+		c.conf.Clock.Start()
+	}
+
 	var bsize uint64
 	if c.conf.Size > 0 {
 		bsize = c.conf.Size / uint64(c.conf.Buckets)
@@ -52,6 +60,8 @@ func (c *Cache[T]) init() {
 		c.buckets = append(c.buckets, bucket[T]{
 			conf: c.conf,
 			id:   strconv.Itoa(int(i)),
+			idx:  make(map[uint64]uint, bsize),
+			buf:  make([]entry[T], 0, bsize),
 			size: bsize,
 		})
 	}
@@ -88,11 +98,16 @@ func (c *Cache[T]) Set(key string, value T) error {
 func (c *Cache[T]) Get(key string) (T, error) {
 	c.o.Do(c.init)
 	if c.err != nil {
-		return t_.(T), c.err
+		return c.null, c.err
 	}
 	hkey := c.conf.Hasher.Sum64(key)
 	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
 	return b.get(hkey)
+}
+
+func (c *Cache[T]) Close() error {
+	// todo: implement me
+	return nil
 }
 
 func (c *Cache[T]) bulkEvict() error {
@@ -133,5 +148,3 @@ func (c *Cache[T]) bulkEvict() error {
 func (c *Cache[T]) l() Logger {
 	return c.conf.Logger
 }
-
-var t_ any = nil

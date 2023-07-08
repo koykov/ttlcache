@@ -1,0 +1,4 @@
+github.com/koykov/fastconv v1.0.2 h1:csOWpctD9OcpkfI07LEtqtolc4TT8Y6QG3zQvkTmhrQ=
+github.com/koykov/fastconv v1.0.2/go.mod h1:9jOx5KRGe4UKHxGiDw5Yrp/qrqn2cRwH3xvFjqqCE3c=
+github.com/koykov/hash v1.0.0 h1:9fO+G934GvZqdtnpn6rfv5kipxUw9Tix+VswM7heASA=
+github.com/koykov/hash v1.0.0/go.mod h1:O9RBNTOh5CSr3z6JSchbN6SXhB4TrqsKvS9S3zr6VJ4=

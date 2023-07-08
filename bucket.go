@@ -9,6 +9,8 @@ type bucket[T any] struct {
 	mux  sync.RWMutex
 	idx  map[uint64]uint
 	buf  []entry[T]
+
+	null T
 }
 
 func (b *bucket[T]) set(hkey uint64, value T) error {
@@ -19,7 +21,7 @@ func (b *bucket[T]) set(hkey uint64, value T) error {
 		b.buf[i] = entry[T]{
 			payload:   value,
 			hkey:      hkey,
-			timestamp: b.conf.Clock.Now().UnixNano(),
+			timestamp: b.conf.Clock.Now().Add(b.conf.TTLInterval).UnixNano(),
 		}
 		b.mw().Set(b.id, b.clk().Now().Sub(now))
 		return nil
@@ -27,7 +29,7 @@ func (b *bucket[T]) set(hkey uint64, value T) error {
 	b.buf = append(b.buf, entry[T]{
 		payload:   value,
 		hkey:      hkey,
-		timestamp: b.conf.Clock.Now().UnixNano(),
+		timestamp: b.conf.Clock.Now().Add(b.conf.TTLInterval).UnixNano(),
 	})
 	b.idx[hkey] = uint(len(b.buf) - 1)
 	b.mw().Set(b.id, b.clk().Now().Sub(now))
@@ -47,13 +49,13 @@ func (b *bucket[T]) get(hkey uint64) (T, error) {
 		now1 := b.clk().Now()
 		if e.timestamp < now1.UnixNano() {
 			b.mw().Expire(b.id)
-			return t_.(T), ErrExpire
+			return b.null, ErrExpire
 		}
 		b.mw().Hit(b.id, now1.Sub(now))
 		return e.payload, nil
 	}
 	b.mw().Miss(b.id)
-	return t_.(T), ErrNotFound
+	return b.null, ErrNotFound
 }
 
 func (b *bucket[T]) evict() error {

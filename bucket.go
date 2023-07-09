@@ -67,6 +67,29 @@ func (b *bucket[T]) delete(hkey uint64) error {
 	return nil
 }
 
+func (b *bucket[T]) extract(hkey uint64) (T, error) {
+	now := b.clk().Now()
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	var (
+		i  uint
+		ok bool
+	)
+	if i, ok = b.idx[hkey]; ok {
+		e := &b.buf[i]
+		now1 := b.clk().Now()
+		if e.timestamp < now1.UnixNano() {
+			b.mw().Expire(b.id)
+			return b.null, ErrExpire
+		}
+		b.mw().Hit(b.id, now1.Sub(now))
+		b.evictLF(i)
+		return e.payload, nil
+	}
+	b.mw().Miss(b.id)
+	return b.null, ErrNotFound
+}
+
 func (b *bucket[T]) evict() error {
 	now := b.clk().Now().UnixNano()
 	b.mux.Lock()

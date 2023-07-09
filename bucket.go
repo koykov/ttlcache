@@ -58,24 +58,37 @@ func (b *bucket[T]) get(hkey uint64) (T, error) {
 	return b.null, ErrNotFound
 }
 
+func (b *bucket[T]) delete(hkey uint64) error {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	if idx, ok := b.idx[hkey]; ok {
+		b.evictLF(idx)
+	}
+	return nil
+}
+
 func (b *bucket[T]) evict() error {
 	now := b.clk().Now().UnixNano()
 	b.mux.Lock()
 	defer b.mux.Unlock()
 	for i := 0; i < len(b.buf); i++ {
 		if now-b.buf[i].timestamp > int64(b.conf.TTLInterval) {
-			l := len(b.buf)
-			old := b.buf[i].hkey
-			b.buf[i] = b.buf[l-1]
-			b.buf = b.buf[:l-1]
-			if i < len(b.buf) {
-				// Edge case: has been deleted last item.
-				b.idx[b.buf[i].hkey] = uint(i)
-			}
-			delete(b.idx, old)
+			b.evictLF(uint(i))
 		}
 	}
 	return nil
+}
+
+func (b *bucket[T]) evictLF(idx uint) {
+	l := len(b.buf)
+	old := b.buf[idx].hkey
+	b.buf[idx] = b.buf[l-1]
+	b.buf = b.buf[:l-1]
+	if idx < uint(len(b.buf)) {
+		// Edge case: has been deleted last item.
+		b.idx[b.buf[idx].hkey] = idx
+	}
+	delete(b.idx, old)
 }
 
 func (b *bucket[T]) mw() MetricsWriter {

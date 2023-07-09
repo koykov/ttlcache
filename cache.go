@@ -105,6 +105,16 @@ func (c *Cache[T]) Get(key string) (T, error) {
 	return b.get(hkey)
 }
 
+func (c *Cache[T]) Delete(key string) error {
+	c.o.Do(c.init)
+	if c.err != nil {
+		return c.err
+	}
+	hkey := c.conf.Hasher.Sum64(key)
+	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
+	return b.delete(hkey)
+}
+
 func (c *Cache[T]) Close() error {
 	// todo: implement me
 	return nil

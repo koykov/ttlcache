@@ -12,6 +12,28 @@ type testEntry struct {
 	p []byte
 }
 
+func TestCache(t *testing.T) {
+	t.Run("delete", func(t *testing.T) {
+		cache, err := New[testEntry](&Config{
+			Buckets:     4,
+			Hasher:      &fnv.Hasher{},
+			TTLInterval: time.Minute,
+		})
+		if err != nil {
+			t.Error(err)
+		}
+		if err = cache.Set("foo", testEntry{p: []byte("foobar")}); err != nil {
+			t.Error(err)
+		}
+		if err = cache.Delete("foo"); err != nil {
+			t.Error(err)
+		}
+		if err = cache.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+}
+
 func TestIO(t *testing.T) {
 	testIO := func(t *testing.T, entries int, verbose bool) {
 		cache, err := New[testEntry](&Config{

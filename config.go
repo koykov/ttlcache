@@ -9,6 +9,16 @@ type Config struct {
 	TTLInterval   time.Duration
 	EvictInterval time.Duration
 	EvictWorkers  uint
+
+	DumpWriter       DumpWriter
+	DumpInterval     time.Duration
+	DumpWriteWorkers uint
+
+	DumpReader      DumpReader
+	DumpReadBuffer  uint
+	DumpReadWorkers uint
+	DumpReadAsync   bool
+
 	MetricsWriter MetricsWriter
 	Clock         Clock
 	Logger        Logger

@@ -3,11 +3,13 @@ package ttlcache
 import (
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type Cache[T any] struct {
 	o       sync.Once
+	status  uint32
 	conf    *Config
 	buckets []bucket[T]
 	null    T
@@ -17,7 +19,8 @@ type Cache[T any] struct {
 
 func New[T any](conf *Config) (*Cache[T], error) {
 	c := &Cache[T]{
-		conf: conf.Copy(),
+		status: cacheStatusActive,
+		conf:   conf.Copy(),
 	}
 	c.o.Do(c.init)
 	if c.err != nil {
@@ -90,6 +93,9 @@ func (c *Cache[T]) Set(key string, value T) error {
 	if c.err != nil {
 		return c.err
 	}
+	if err := c.checkCache(cacheStatusActive); err != nil {
+		return err
+	}
 	hkey := c.conf.Hasher.Sum64(key)
 	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
 	return b.set(hkey, value)
@@ -99,6 +105,9 @@ func (c *Cache[T]) Get(key string) (T, error) {
 	c.o.Do(c.init)
 	if c.err != nil {
 		return c.null, c.err
+	}
+	if err := c.checkCache(cacheStatusActive); err != nil {
+		return c.null, err
 	}
 	hkey := c.conf.Hasher.Sum64(key)
 	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
@@ -110,6 +119,9 @@ func (c *Cache[T]) Delete(key string) error {
 	if c.err != nil {
 		return c.err
 	}
+	if err := c.checkCache(cacheStatusActive); err != nil {
+		return err
+	}
 	hkey := c.conf.Hasher.Sum64(key)
 	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
 	return b.delete(hkey)
@@ -120,13 +132,17 @@ func (c *Cache[T]) Extract(key string) (T, error) {
 	if c.err != nil {
 		return c.null, c.err
 	}
+	if err := c.checkCache(cacheStatusActive); err != nil {
+		return c.null, err
+	}
 	hkey := c.conf.Hasher.Sum64(key)
 	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
 	return b.extract(hkey)
 }
 
 func (c *Cache[T]) Close() error {
-	// todo: implement me
+	atomic.StoreUint32(&c.status, cacheStatusClosed)
+	c.conf.Clock.Stop()
 	return nil
 }
 
@@ -162,6 +178,18 @@ func (c *Cache[T]) bulkEvict() error {
 
 	wg.Wait()
 
+	return nil
+}
+
+func (c *Cache[T]) checkCache(allow uint32) error {
+	if status := atomic.LoadUint32(&c.status); status&allow == 0 {
+		if status == cacheStatusNil {
+			return ErrBadCache
+		}
+		if status == cacheStatusClosed {
+			return ErrCacheClosed
+		}
+	}
 	return nil
 }
 

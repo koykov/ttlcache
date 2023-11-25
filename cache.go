@@ -143,45 +143,22 @@ func (c *Cache[T]) Extract(key string) (T, error) {
 func (c *Cache[T]) Close() error {
 	atomic.StoreUint32(&c.status, cacheStatusClosed)
 	c.conf.Clock.Stop()
-	return nil
+	return c.bulkClose()
 }
 
 func (c *Cache[T]) bulkEvict() error {
-	var workers = c.conf.EvictWorkers
-	if c.conf.Buckets < workers {
-		workers = c.conf.Buckets
-	}
-	bucketQueue := make(chan uint, workers)
-	var wg sync.WaitGroup
-	for i := uint(0); i < workers; i++ {
-		wg.Add(1)
-		go func(i uint) {
-			defer wg.Done()
-			for {
-				if idx, ok := <-bucketQueue; ok {
-					_ = c.buckets[idx].evict()
-					continue
-				}
-				break
-			}
-		}(i)
-	}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := uint(0); i < workers; i++ {
-			bucketQueue <- i
-		}
-		close(bucketQueue)
-	}()
-
-	wg.Wait()
-
-	return nil
+	return c.bulkExec(func(b *bucket[T]) error {
+		return b.evict()
+	})
 }
 
 func (c *Cache[T]) bulkClose() error {
+	return c.bulkExec(func(b *bucket[T]) error {
+		return b.close()
+	})
+}
+
+func (c *Cache[T]) bulkExec(fn func(b *bucket[T]) error) error {
 	var workers = c.conf.EvictWorkers
 	if c.conf.Buckets < workers {
 		workers = c.conf.Buckets
@@ -194,7 +171,7 @@ func (c *Cache[T]) bulkClose() error {
 			defer wg.Done()
 			for {
 				if idx, ok := <-bucketQueue; ok {
-					_ = c.buckets[idx].close()
+					_ = fn(&c.buckets[idx])
 					continue
 				}
 				break

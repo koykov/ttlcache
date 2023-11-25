@@ -181,6 +181,41 @@ func (c *Cache[T]) bulkEvict() error {
 	return nil
 }
 
+func (c *Cache[T]) bulkClose() error {
+	var workers = c.conf.EvictWorkers
+	if c.conf.Buckets < workers {
+		workers = c.conf.Buckets
+	}
+	bucketQueue := make(chan uint, workers)
+	var wg sync.WaitGroup
+	for i := uint(0); i < workers; i++ {
+		wg.Add(1)
+		go func(i uint) {
+			defer wg.Done()
+			for {
+				if idx, ok := <-bucketQueue; ok {
+					_ = c.buckets[idx].close()
+					continue
+				}
+				break
+			}
+		}(i)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := uint(0); i < workers; i++ {
+			bucketQueue <- i
+		}
+		close(bucketQueue)
+	}()
+
+	wg.Wait()
+
+	return nil
+}
+
 func (c *Cache[T]) checkCache(allow uint32) error {
 	if status := atomic.LoadUint32(&c.status); status&allow == 0 {
 		if status == cacheStatusNil {

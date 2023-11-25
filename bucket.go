@@ -114,6 +114,16 @@ func (b *bucket[T]) evictLF(idx uint) {
 	delete(b.idx, old)
 }
 
+func (b *bucket[T]) close() error {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	b.buf = b.buf[:0]
+	for k := range b.idx {
+		delete(b.idx, k)
+	}
+	return nil
+}
+
 func (b *bucket[T]) mw() MetricsWriter {
 	return b.conf.MetricsWriter
 }

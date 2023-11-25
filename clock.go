@@ -12,7 +12,7 @@ type Clock interface {
 	Start()
 	// Stop the clock.
 	Stop()
-	// Active checks if close is started.
+	// Active checks if clock is started.
 	Active() bool
 	// Now returns current time considering jumps.
 	Now() time.Time

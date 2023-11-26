@@ -76,6 +76,25 @@ func TestCache(t *testing.T) {
 			t.Error(err)
 		}
 	})
+	t.Run("close", func(t *testing.T) {
+		cache, err := New[testEntry](&Config{
+			Buckets:     4,
+			Hasher:      &fnv.Hasher{},
+			TTLInterval: time.Minute,
+		})
+		if err != nil {
+			t.Error(err)
+		}
+		if err = cache.Set("foo", testEntry{p: []byte("foobar")}); err != nil {
+			t.Error(err)
+		}
+		if err = cache.Close(); err != nil {
+			t.Error(err)
+		}
+		if _, err = cache.Get("foo"); err != ErrCacheClosed {
+			t.Error(err)
+		}
+	})
 }
 
 func TestIO(t *testing.T) {

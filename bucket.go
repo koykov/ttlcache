@@ -124,6 +124,13 @@ func (b *bucket[T]) reset() error {
 	return nil
 }
 
+func (b *bucket[T]) close() error {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+	b.buf, b.idx = nil, nil
+	return nil
+}
+
 func (b *bucket[T]) mw() MetricsWriter {
 	return b.conf.MetricsWriter
 }

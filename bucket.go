@@ -114,7 +114,7 @@ func (b *bucket[T]) evictLF(idx uint) {
 	delete(b.idx, old)
 }
 
-func (b *bucket[T]) close() error {
+func (b *bucket[T]) reset() error {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 	b.buf = b.buf[:0]

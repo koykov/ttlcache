@@ -146,6 +146,10 @@ func (c *Cache[T]) Close() error {
 	return c.bulkClose()
 }
 
+func (c *Cache[T]) Reset() error {
+	return c.bulkReset()
+}
+
 func (c *Cache[T]) bulkEvict() error {
 	return c.bulkExec(func(b *bucket[T]) error {
 		return b.evict()
@@ -154,7 +158,13 @@ func (c *Cache[T]) bulkEvict() error {
 
 func (c *Cache[T]) bulkClose() error {
 	return c.bulkExec(func(b *bucket[T]) error {
-		return b.close()
+		return b.reset()
+	})
+}
+
+func (c *Cache[T]) bulkReset() error {
+	return c.bulkExec(func(b *bucket[T]) error {
+		return b.reset()
 	})
 }
 

@@ -10,14 +10,14 @@ import (
 type Cache[T any] struct {
 	o       sync.Once
 	status  uint32
-	conf    *Config
+	conf    *Config[T]
 	buckets []bucket[T]
 	null    T
 
 	err error
 }
 
-func New[T any](conf *Config) (*Cache[T], error) {
+func New[T any](conf *Config[T]) (*Cache[T], error) {
 	c := &Cache[T]{
 		status: cacheStatusActive,
 		conf:   conf.Copy(),

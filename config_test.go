@@ -7,7 +7,7 @@ import (
 
 func TestConfig(t *testing.T) {
 	t.Run("copy", func(t *testing.T) {
-		conf := Config{
+		conf := Config[testEntry]{
 			TTLInterval: time.Minute,
 		}
 		cpy := conf.Copy()

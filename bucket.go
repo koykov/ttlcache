@@ -3,7 +3,7 @@ package ttlcache
 import "sync"
 
 type bucket[T any] struct {
-	conf *Config
+	conf *Config[T]
 	id   string
 	size uint64
 	mux  sync.RWMutex

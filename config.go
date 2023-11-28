@@ -2,7 +2,7 @@ package ttlcache
 
 import "time"
 
-type Config struct {
+type Config[T any] struct {
 	Size          uint64
 	Buckets       uint
 	Hasher        Hasher
@@ -11,10 +11,12 @@ type Config struct {
 	EvictWorkers  uint
 
 	DumpWriter       DumpWriter
+	DumpEncoder      Encoder[T]
 	DumpInterval     time.Duration
 	DumpWriteWorkers uint
 
 	DumpReader      DumpReader
+	DumpDecoder     Decode[T]
 	DumpReadBuffer  uint
 	DumpReadWorkers uint
 	DumpReadAsync   bool
@@ -24,7 +26,7 @@ type Config struct {
 	Logger        Logger
 }
 
-func (c *Config) Copy() *Config {
+func (c *Config[T]) Copy() *Config[T] {
 	cpy := *c
 	return &cpy
 }

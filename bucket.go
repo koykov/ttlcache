@@ -1,6 +1,12 @@
 package ttlcache
 
-import "sync"
+import (
+	"io"
+	"strconv"
+	"sync"
+)
+
+const dumpBufSize = 4096
 
 type bucket[T any] struct {
 	conf *Config[T]
@@ -9,6 +15,7 @@ type bucket[T any] struct {
 	mux  sync.RWMutex
 	idx  map[uint64]uint
 	buf  []entry[T]
+	bbuf []byte
 
 	null T
 }
@@ -112,6 +119,30 @@ func (b *bucket[T]) evictLF(idx uint) {
 		b.idx[b.buf[idx].hkey] = idx
 	}
 	delete(b.idx, old)
+}
+
+func (b *bucket[T]) dump(w io.Writer) (err error) {
+	b.mux.RLock()
+	defer b.mux.RUnlock()
+	b.bbuf = b.bbuf[:0]
+	for i := 0; i < len(b.buf); i++ {
+		e := &b.buf[i]
+		b.bbuf = strconv.AppendUint(b.bbuf, e.hkey, 10)
+		b.bbuf = strconv.AppendInt(b.bbuf, e.timestamp, 10)
+		if b.bbuf, _, err = b.conf.DumpEncoder.Encode(b.bbuf, e.payload); err != nil {
+			return
+		}
+		if len(b.bbuf) > dumpBufSize {
+			if _, err = w.Write(b.bbuf); err != nil {
+				return
+			}
+			b.bbuf = b.bbuf[:0]
+		}
+	}
+	if len(b.bbuf) > 0 {
+		_, err = w.Write(b.bbuf)
+	}
+	return
 }
 
 func (b *bucket[T]) reset() error {

@@ -5,8 +5,7 @@ import (
 	"github.com/koykov/ttlcache"
 )
 
-type Protobuf[T any] struct {
-}
+type Protobuf[T any] struct{}
 
 func (t Protobuf[T]) Encode(dst []byte, v T) ([]byte, int, error) {
 	var m ttlcache.MarshallerTo

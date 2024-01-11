@@ -3,6 +3,7 @@ package ttlcache
 import "errors"
 
 var (
+	ErrOK          = nil
 	ErrNoConfig    = errors.New("no config provided")
 	ErrBadCache    = errors.New("cache uninitialized, use New()")
 	ErrCacheClosed = errors.New("cache closed")

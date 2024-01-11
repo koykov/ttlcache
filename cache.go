@@ -168,6 +168,16 @@ func (c *Cache[T]) bulkReset() error {
 	})
 }
 
+func (c *Cache[T]) dump() error {
+	if c.conf.DumpWriter == nil {
+		return ErrOK
+	}
+	if err := c.bulkExec(func(b *bucket[T]) error { return b.dump() }); err != nil {
+		return err
+	}
+	return c.conf.DumpWriter.Flush()
+}
+
 func (c *Cache[T]) bulkExec(fn func(b *bucket[T]) error) error {
 	var workers = c.conf.EvictWorkers
 	if c.conf.Buckets < workers {

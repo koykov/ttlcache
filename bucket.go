@@ -2,6 +2,8 @@ package ttlcache
 
 import (
 	"sync"
+
+	"github.com/koykov/bytealg"
 )
 
 const dumpBufSize = 4096
@@ -122,13 +124,12 @@ func (b *bucket[T]) evictLF(idx uint) {
 func (b *bucket[T]) dump() (err error) {
 	b.mux.RLock()
 	defer b.mux.RUnlock()
-	b.bbuf = b.bbuf[:0]
 	for i := 0; i < len(b.buf); i++ {
 		e := b.buf[i]
-		b.bbuf, _, _ = b.conf.DumpEncoder.Encode(b.bbuf, e.payload)
+		b.bbuf, _, _ = b.conf.DumpEncoder.Encode(b.bbuf[:0], e.payload)
 		oe := Entry{
 			Key:    e.hkey,
-			Body:   b.bbuf,
+			Body:   bytealg.Copy(b.bbuf),
 			Expire: uint32(e.timestamp),
 		}
 		if _, err = b.conf.DumpWriter.Write(oe); err != nil {

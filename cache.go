@@ -8,7 +8,7 @@ import (
 )
 
 type Cache[T any] struct {
-	o       sync.Once
+	once    sync.Once
 	status  uint32
 	conf    *Config[T]
 	buckets []bucket[T]
@@ -22,7 +22,7 @@ func New[T any](conf *Config[T]) (*Cache[T], error) {
 		status: cacheStatusActive,
 		conf:   conf.Copy(),
 	}
-	c.o.Do(c.init)
+	c.once.Do(c.init)
 	if c.err != nil {
 		return nil, c.err
 	}
@@ -89,7 +89,7 @@ func (c *Cache[T]) init() {
 }
 
 func (c *Cache[T]) Set(key string, value T) error {
-	c.o.Do(c.init)
+	c.once.Do(c.init)
 	if c.err != nil {
 		return c.err
 	}
@@ -102,7 +102,7 @@ func (c *Cache[T]) Set(key string, value T) error {
 }
 
 func (c *Cache[T]) Get(key string) (T, error) {
-	c.o.Do(c.init)
+	c.once.Do(c.init)
 	if c.err != nil {
 		return c.null, c.err
 	}
@@ -115,7 +115,7 @@ func (c *Cache[T]) Get(key string) (T, error) {
 }
 
 func (c *Cache[T]) Delete(key string) error {
-	c.o.Do(c.init)
+	c.once.Do(c.init)
 	if c.err != nil {
 		return c.err
 	}
@@ -128,7 +128,7 @@ func (c *Cache[T]) Delete(key string) error {
 }
 
 func (c *Cache[T]) Extract(key string) (T, error) {
-	c.o.Do(c.init)
+	c.once.Do(c.init)
 	if c.err != nil {
 		return c.null, c.err
 	}
@@ -151,19 +151,19 @@ func (c *Cache[T]) Reset() error {
 }
 
 func (c *Cache[T]) bulkEvict() error {
-	return c.bulkExec(func(b *bucket[T]) error {
+	return c.bulkExec(c.conf.EvictWorkers, func(b *bucket[T]) error {
 		return b.evict()
 	})
 }
 
 func (c *Cache[T]) bulkClose() error {
-	return c.bulkExec(func(b *bucket[T]) error {
+	return c.bulkExec(c.conf.EvictWorkers, func(b *bucket[T]) error {
 		return b.close()
 	})
 }
 
 func (c *Cache[T]) bulkReset() error {
-	return c.bulkExec(func(b *bucket[T]) error {
+	return c.bulkExec(c.conf.EvictWorkers, func(b *bucket[T]) error {
 		return b.reset()
 	})
 }
@@ -172,15 +172,14 @@ func (c *Cache[T]) dump() error {
 	if c.conf.DumpWriter == nil {
 		return ErrOK
 	}
-	if err := c.bulkExec(func(b *bucket[T]) error { return b.dump() }); err != nil {
+	if err := c.bulkExec(c.conf.DumpWriteWorkers, func(b *bucket[T]) error { return b.dump() }); err != nil {
 		return err
 	}
 	return c.conf.DumpWriter.Flush()
 }
 
-func (c *Cache[T]) bulkExec(fn func(b *bucket[T]) error) error {
-	var workers = c.conf.EvictWorkers
-	if c.conf.Buckets < workers {
+func (c *Cache[T]) bulkExec(workers uint, fn func(b *bucket[T]) error) error {
+	if workers == 0 {
 		workers = c.conf.Buckets
 	}
 	bucketQueue := make(chan uint, workers)

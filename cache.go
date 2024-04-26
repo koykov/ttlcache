@@ -201,7 +201,7 @@ func (c *Cache[T]) bulkExec(workers uint, fn func(b *bucket[T]) error) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for i := uint(0); i < workers; i++ {
+		for i := uint(0); i < c.conf.Buckets; i++ {
 			bucketQueue <- i
 		}
 		close(bucketQueue)

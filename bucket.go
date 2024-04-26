@@ -6,8 +6,6 @@ import (
 	"github.com/koykov/bytealg"
 )
 
-const dumpBufSize = 4096
-
 type bucket[T any] struct {
 	conf *Config[T]
 	id   string

@@ -179,7 +179,7 @@ func (c *Cache[T]) dump() error {
 }
 
 func (c *Cache[T]) bulkExec(workers uint, fn func(b *bucket[T]) error) error {
-	if workers == 0 {
+	if workers == 0 || workers > c.conf.Buckets {
 		workers = c.conf.Buckets
 	}
 	bucketQueue := make(chan uint, workers)

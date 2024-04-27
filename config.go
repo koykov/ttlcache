@@ -10,8 +10,6 @@ type Config[T any] struct {
 	EvictInterval time.Duration
 	EvictWorkers  uint
 
-	DumpVersion uint32
-
 	DumpWriter       DumpWriter
 	DumpEncoder      Encoder[T]
 	DumpInterval     time.Duration

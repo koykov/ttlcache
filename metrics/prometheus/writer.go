@@ -1,4 +1,4 @@
-package prometeus
+package prometheus
 
 import (
 	"time"

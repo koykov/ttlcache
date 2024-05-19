@@ -151,19 +151,19 @@ func (c *Cache[T]) Reset() error {
 }
 
 func (c *Cache[T]) bulkEvict() error {
-	return c.bulkExec(c.conf.EvictWorkers, func(b *bucket[T]) error {
+	return c.bulkExec(c.conf.EvictWorkers, "eviction", func(b *bucket[T]) error {
 		return b.evict()
 	})
 }
 
 func (c *Cache[T]) bulkClose() error {
-	return c.bulkExec(c.conf.EvictWorkers, func(b *bucket[T]) error {
+	return c.bulkExec(c.conf.EvictWorkers, "close", func(b *bucket[T]) error {
 		return b.close()
 	})
 }
 
 func (c *Cache[T]) bulkReset() error {
-	return c.bulkExec(c.conf.EvictWorkers, func(b *bucket[T]) error {
+	return c.bulkExec(c.conf.EvictWorkers, "reset", func(b *bucket[T]) error {
 		return b.reset()
 	})
 }
@@ -172,13 +172,13 @@ func (c *Cache[T]) dump() error {
 	if c.conf.DumpWriter == nil {
 		return ErrOK
 	}
-	if err := c.bulkExec(c.conf.DumpWriteWorkers, func(b *bucket[T]) error { return b.dump() }); err != nil {
+	if err := c.bulkExec(c.conf.DumpWriteWorkers, "dump", func(b *bucket[T]) error { return b.dump() }); err != nil {
 		return err
 	}
 	return c.conf.DumpWriter.Flush()
 }
 
-func (c *Cache[T]) bulkExec(workers uint, fn func(b *bucket[T]) error) error {
+func (c *Cache[T]) bulkExec(workers uint, op string, fn func(b *bucket[T]) error) error {
 	if workers == 0 || workers > c.conf.Buckets {
 		workers = c.conf.Buckets
 	}
@@ -190,7 +190,10 @@ func (c *Cache[T]) bulkExec(workers uint, fn func(b *bucket[T]) error) error {
 			defer wg.Done()
 			for {
 				if idx, ok := <-bucketQueue; ok {
-					_ = fn(&c.buckets[idx])
+					bkt := &c.buckets[idx]
+					if err := fn(bkt); err != nil && c.l() != nil {
+						c.l().Printf("bucket #%d: %s failed with error '%s'\n", idx, op, err.Error())
+					}
 					continue
 				}
 				break

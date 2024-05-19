@@ -71,6 +71,14 @@ func (w Writer) Evict(bucket string) {
 	io.WithLabelValues(w.key, bucket, cacheIOEvict).Inc()
 }
 
+func (w Writer) Dump(bucket string) {
+	dumpIO.WithLabelValues(w.key, bucket, dumpIODump).Inc()
+}
+
+func (w Writer) Load(bucket string) {
+	dumpIO.WithLabelValues(w.key, bucket, dumpIOLoad).Inc()
+}
+
 var (
 	size       *prometheus.GaugeVec
 	io, dumpIO *prometheus.CounterVec
@@ -100,12 +108,4 @@ func init() {
 	}, []string{"cache", "bucket", "op"})
 
 	prometheus.MustRegister(size, io, dumpIO, speed)
-}
-
-func (w Writer) Dump(bucket string) {
-	dumpIO.WithLabelValues(w.key, bucket, dumpIODump).Inc()
-}
-
-func (w Writer) Load(bucket string) {
-	dumpIO.WithLabelValues(w.key, bucket, dumpIOLoad).Inc()
 }

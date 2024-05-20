@@ -97,8 +97,14 @@ func (b *bucket[T]) extract(hkey uint64) (T, error) {
 
 func (b *bucket[T]) evict() error {
 	now := b.clk().Now().UnixNano()
+	var c int
 	b.mux.Lock()
-	defer b.mux.Unlock()
+	defer func() {
+		if b.l() != nil {
+			b.l().Printf("bucket #%s: evict %d entries", b.id, c)
+		}
+		b.mux.Unlock()
+	}()
 	for i := 0; i < len(b.buf); i++ {
 		if now-b.buf[i].timestamp > int64(b.conf.TTLInterval) {
 			b.evictLF(uint(i))
@@ -117,6 +123,7 @@ func (b *bucket[T]) evictLF(idx uint) {
 		b.idx[b.buf[idx].hkey] = idx
 	}
 	delete(b.idx, old)
+	b.mw().Evict(b.id)
 }
 
 func (b *bucket[T]) dump() (err error) {
@@ -150,6 +157,10 @@ func (b *bucket[T]) reset() error {
 func (b *bucket[T]) close() error {
 	b.mux.Lock()
 	defer b.mux.Unlock()
+	for _, v := range b.idx {
+		_ = v
+		b.mw().Del(b.id)
+	}
 	b.buf, b.idx = nil, nil
 	return ErrOK
 }
@@ -160,4 +171,8 @@ func (b *bucket[T]) mw() MetricsWriter {
 
 func (b *bucket[T]) clk() Clock {
 	return b.conf.Clock
+}
+
+func (b *bucket[T]) l() Logger {
+	return b.conf.Logger
 }

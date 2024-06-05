@@ -97,6 +97,23 @@ func (c *Cache[T]) init() {
 			}
 		})
 	}
+
+	if c.conf.DumpReader != nil {
+		if c.conf.DumpReadWorkers == 0 {
+			c.conf.DumpReadWorkers = defaultDumpReadWorkers
+		}
+		if c.conf.DumpReadBuffer == 0 {
+			c.conf.DumpReadBuffer = c.conf.DumpReadWorkers
+		}
+		fn := func() {
+			// todo implement me
+		}
+		if c.conf.DumpReadAsync {
+			go fn()
+		} else {
+			fn()
+		}
+	}
 }
 
 func (c *Cache[T]) Set(key string, value T) error {

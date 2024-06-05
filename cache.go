@@ -1,6 +1,7 @@
 package ttlcache
 
 import (
+	"io"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -87,7 +88,7 @@ func (c *Cache[T]) init() {
 		})
 	}
 
-	if c.conf.DumpWriter != nil && c.conf.DumpInterval > 0 {
+	if c.conf.DumpWriter != nil && c.conf.DumpEncoder != nil && c.conf.DumpInterval > 0 {
 		if c.conf.DumpWriteWorkers == 0 {
 			c.conf.DumpWriteWorkers = defaultDumpWriteWorkers
 		}
@@ -98,7 +99,7 @@ func (c *Cache[T]) init() {
 		})
 	}
 
-	if c.conf.DumpReader != nil {
+	if c.conf.DumpReader != nil && c.conf.DumpDecoder != nil {
 		if c.conf.DumpReadWorkers == 0 {
 			c.conf.DumpReadWorkers = defaultDumpReadWorkers
 		}
@@ -206,6 +207,52 @@ func (c *Cache[T]) dump() error {
 	return c.conf.DumpWriter.Flush()
 }
 
+func (c *Cache[T]) load() (int, error) {
+	stream := make(chan Entry, c.conf.DumpReadBuffer)
+	var wg sync.WaitGroup
+	for i := uint(0); i < c.conf.DumpReadWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case e, ok := <-stream:
+					if !ok {
+						return
+					}
+					bkt := &c.buckets[e.Key%uint64(c.conf.Buckets)]
+					var t T
+					if err := c.conf.DumpDecoder.Decode(&t, e.Body); err != nil {
+						continue
+					}
+					bkt.svcLock()
+					_ = bkt.setLF(e.Key, t)
+					bkt.svcUnlock()
+					c.mw().Load(bkt.id)
+				}
+			}
+		}()
+	}
+
+	var lc int
+	for {
+		e, err := c.conf.DumpReader.Read()
+		if err != nil {
+			close(stream)
+			if err != io.EOF && c.l() != nil {
+				c.l().Printf("dump load interrupt due to error: %s", err.Error())
+			}
+			break
+		}
+		stream <- e
+		lc++
+	}
+
+	wg.Wait()
+
+	return lc, nil
+}
+
 func (c *Cache[T]) bulkExec(workers uint, op string, fn func(b *bucket[T]) error) error {
 	if workers == 0 || workers > c.conf.Buckets {
 		workers = c.conf.Buckets
@@ -253,6 +300,10 @@ func (c *Cache[T]) checkCache(allow uint32) error {
 		}
 	}
 	return nil
+}
+
+func (c *Cache[T]) mw() MetricsWriter {
+	return c.conf.MetricsWriter
 }
 
 func (c *Cache[T]) l() Logger {

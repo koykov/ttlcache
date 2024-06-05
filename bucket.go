@@ -19,9 +19,13 @@ type bucket[T any] struct {
 }
 
 func (b *bucket[T]) set(hkey uint64, value T) error {
-	now := b.clk().Now()
 	b.mux.Lock()
 	defer b.mux.Unlock()
+	return b.setLF(hkey, value)
+}
+
+func (b *bucket[T]) setLF(hkey uint64, value T) error {
+	now := b.clk().Now()
 	if i, ok := b.idx[hkey]; ok {
 		b.buf[i] = entry[T]{
 			payload:   value,
@@ -163,6 +167,14 @@ func (b *bucket[T]) close() error {
 	}
 	b.buf, b.idx = nil, nil
 	return ErrOK
+}
+
+func (b *bucket[T]) svcLock() {
+	b.mux.Lock()
+}
+
+func (b *bucket[T]) svcUnlock() {
+	b.mux.Unlock()
 }
 
 func (b *bucket[T]) mw() MetricsWriter {

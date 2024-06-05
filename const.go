@@ -5,5 +5,7 @@ const (
 	cacheStatusActive = 1
 	cacheStatusClosed = 2
 
-	defaultEvictWorkers = 16
+	defaultEvictWorkers     = 16
+	defaultDumpWriteWorkers = 16
+	defaultDumpReadWorkers  = 16
 )

@@ -86,6 +86,17 @@ func (c *Cache[T]) init() {
 			}
 		})
 	}
+
+	if c.conf.DumpWriter != nil && c.conf.DumpInterval > 0 {
+		if c.conf.DumpWriteWorkers == 0 {
+			c.conf.DumpWriteWorkers = defaultDumpWriteWorkers
+		}
+		c.conf.Clock.Schedule(c.conf.DumpInterval, func() {
+			if err := c.dump(); err != nil && c.l() != nil {
+				c.l().Printf("dump write failed with error %s\n", err.Error())
+			}
+		})
+	}
 }
 
 func (c *Cache[T]) Set(key string, value T) error {

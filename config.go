@@ -16,7 +16,7 @@ type Config[T any] struct {
 	DumpWriteWorkers uint
 
 	DumpReader      DumpReader
-	DumpDecoder     Decode[T]
+	DumpDecoder     Decoder[T]
 	DumpReadBuffer  uint
 	DumpReadWorkers uint
 	DumpReadAsync   bool

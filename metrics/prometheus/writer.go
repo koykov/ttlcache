@@ -96,7 +96,7 @@ func init() {
 	}, []string{"cache", "bucket", "op"})
 
 	dumpIO = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "ttlcache_dump",
+		Name: "ttlcache_dump_io",
 		Help: "Count dump IO operations calls.",
 	}, []string{"cache", "bucket", "op"})
 
@@ -109,3 +109,5 @@ func init() {
 
 	prometheus.MustRegister(size, io, dumpIO, speed)
 }
+
+var _ = NewWriter

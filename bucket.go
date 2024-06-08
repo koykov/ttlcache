@@ -144,6 +144,7 @@ func (b *bucket[T]) dump() (err error) {
 		if _, err = b.conf.DumpWriter.Write(oe); err != nil {
 			return err
 		}
+		b.mw().Dump(b.id)
 	}
 	return
 }

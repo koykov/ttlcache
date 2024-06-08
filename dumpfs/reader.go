@@ -69,7 +69,7 @@ func (r *Reader) Read() (e ttlcache.Entry, err error) {
 	e.Expire = binary.LittleEndian.Uint32(r.buf[off:])
 	off += 4
 
-	e.Body = r.buf[blo:bhi]
+	e.Body = append(e.Body, r.buf[blo:bhi]...)
 
 	return
 }

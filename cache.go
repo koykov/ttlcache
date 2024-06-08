@@ -107,7 +107,14 @@ func (c *Cache[T]) init() {
 			c.conf.DumpReadBuffer = c.conf.DumpReadWorkers
 		}
 		fn := func() {
-			// todo implement me
+			lc, err := c.load()
+			if c.l() != nil {
+				if err != nil {
+					c.l().Printf("dump read failed with error %s\n", err.Error())
+				} else {
+					c.l().Printf("read %d entries from dump\n", lc)
+				}
+			}
 		}
 		if c.conf.DumpReadAsync {
 			go fn()

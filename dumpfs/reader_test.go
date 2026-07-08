@@ -10,7 +10,7 @@ import (
 )
 
 func TestReader(t *testing.T) {
-	r, _ := NewReader("testdata/example.bin", KeepFile)
+	r, _ := NewReader("testdata/example.bin", WithOnEOF(KeepFile))
 	for {
 		e, err := r.Read()
 		if err == io.EOF {

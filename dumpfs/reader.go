@@ -23,10 +23,10 @@ type reader struct {
 	buf []byte
 }
 
-func NewReader(filepath string, onEOF OnEOF) (Reader, error) {
-	r := &reader{
-		fp:  filepath,
-		eof: onEOF,
+func NewReader(filepath string, options ...ROption) (Reader, error) {
+	r := &reader{fp: filepath}
+	for _, fn := range options {
+		fn(r)
 	}
 	if r.eof == nil {
 		r.eof = os.Remove

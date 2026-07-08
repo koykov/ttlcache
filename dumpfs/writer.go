@@ -34,10 +34,10 @@ type writer struct {
 	err error
 }
 
-func NewWriter(bufferSize uint64, filepath string) (Writer, error) {
-	w := &writer{
-		bs: bufferSize,
-		fp: filepath,
+func NewWriter(filepath string, options ...WOption) (Writer, error) {
+	w := &writer{fp: filepath}
+	for _, fn := range options {
+		fn(w)
 	}
 	if err := w.init(); err != nil {
 		return nil, err

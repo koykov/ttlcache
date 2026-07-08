@@ -8,44 +8,224 @@ import (
 	"time"
 )
 
-type Cache[T any] struct {
-	once    sync.Once
+type Cache[T any] interface {
+	Set(key string, value T) error
+	Get(key string) (T, error)
+	Delete(key string) error
+	Extract(key string) (T, error)
+	Close() error
+	Reset() error
+}
+
+type cache[T any] struct {
 	status  uint32
 	conf    *Config[T]
 	buckets []bucket[T]
 	null    T
-
-	err error
 }
 
-func New[T any](conf *Config[T]) (*Cache[T], error) {
-	c := &Cache[T]{
+func New[T any](conf *Config[T]) (Cache[T], error) {
+	c := &cache[T]{
 		status: cacheStatusActive,
 		conf:   conf.Copy(),
 	}
-	c.once.Do(c.init)
-	if c.err != nil {
-		return nil, c.err
+
+	if err := c.init(); err != nil {
+		return nil, err
 	}
 	return c, nil
 }
 
-func (c *Cache[T]) init() {
+func (c *cache[T]) Set(key string, value T) error {
+	if err := c.checkCache(cacheStatusActive); err != nil {
+		return err
+	}
+	hkey := c.conf.Hasher.Sum64(key)
+	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
+	return b.set(hkey, value)
+}
+
+func (c *cache[T]) Get(key string) (T, error) {
+	if err := c.checkCache(cacheStatusActive); err != nil {
+		return c.null, err
+	}
+	hkey := c.conf.Hasher.Sum64(key)
+	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
+	return b.get(hkey)
+}
+
+func (c *cache[T]) Delete(key string) error {
+	if err := c.checkCache(cacheStatusActive); err != nil {
+		return err
+	}
+	hkey := c.conf.Hasher.Sum64(key)
+	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
+	return b.delete(hkey)
+}
+
+func (c *cache[T]) Extract(key string) (T, error) {
+	if err := c.checkCache(cacheStatusActive); err != nil {
+		return c.null, err
+	}
+	hkey := c.conf.Hasher.Sum64(key)
+	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
+	return b.extract(hkey)
+}
+
+func (c *cache[T]) Close() error {
+	atomic.StoreUint32(&c.status, cacheStatusClosed)
+	c.conf.Clock.Stop()
+	return c.bulkClose()
+}
+
+func (c *cache[T]) Reset() error {
+	return c.bulkReset()
+}
+
+func (c *cache[T]) bulkEvict() error {
+	return c.bulkExec(c.conf.EvictWorkers, "eviction", func(b *bucket[T]) error {
+		return b.evict()
+	})
+}
+
+func (c *cache[T]) bulkClose() error {
+	return c.bulkExec(c.conf.EvictWorkers, "close", func(b *bucket[T]) error {
+		return b.close()
+	})
+}
+
+func (c *cache[T]) bulkReset() error {
+	return c.bulkExec(c.conf.EvictWorkers, "reset", func(b *bucket[T]) error {
+		return b.reset()
+	})
+}
+
+func (c *cache[T]) dump() error {
+	if c.conf.DumpWriter == nil {
+		return ErrOK
+	}
+	if err := c.bulkExec(c.conf.DumpWriteWorkers, "dump", func(b *bucket[T]) error { return b.dump() }); err != nil {
+		return err
+	}
+	return c.conf.DumpWriter.Flush()
+}
+
+func (c *cache[T]) load() (int, error) {
+	stream := make(chan Entry, c.conf.DumpReadBuffer)
+	var wg sync.WaitGroup
+	for i := uint(0); i < c.conf.DumpReadWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case e, ok := <-stream:
+					if !ok {
+						return
+					}
+					bkt := &c.buckets[e.Key%uint64(c.conf.Buckets)]
+					var t T
+					if err := c.conf.DumpDecoder.Decode(&t, e.Body); err != nil {
+						continue
+					}
+					bkt.svcLock()
+					_ = bkt.setLF(e.Key, t)
+					bkt.svcUnlock()
+					c.mw().Load(bkt.id)
+				}
+			}
+		}()
+	}
+
+	var lc int
+	for {
+		e, err := c.conf.DumpReader.Read()
+		if err != nil {
+			close(stream)
+			if err != io.EOF && c.l() != nil {
+				c.l().Printf("dump load interrupt due to error: %s", err.Error())
+			}
+			break
+		}
+		stream <- e
+		lc++
+	}
+
+	wg.Wait()
+
+	return lc, nil
+}
+
+func (c *cache[T]) bulkExec(workers uint, op string, fn func(b *bucket[T]) error) error {
+	if workers == 0 || workers > c.conf.Buckets {
+		workers = c.conf.Buckets
+	}
+	bucketQueue := make(chan uint, workers)
+	var wg sync.WaitGroup
+	for i := uint(0); i < workers; i++ {
+		wg.Add(1)
+		go func(i uint) {
+			defer wg.Done()
+			for {
+				if idx, ok := <-bucketQueue; ok {
+					bkt := &c.buckets[idx]
+					if err := fn(bkt); err != nil && c.l() != nil {
+						c.l().Printf("bucket #%d: %s failed with error '%s'\n", idx, op, err.Error())
+					}
+					continue
+				}
+				break
+			}
+		}(i)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := uint(0); i < c.conf.Buckets; i++ {
+			bucketQueue <- i
+		}
+		close(bucketQueue)
+	}()
+
+	wg.Wait()
+
+	return nil
+}
+
+func (c *cache[T]) checkCache(allow uint32) error {
+	if status := atomic.LoadUint32(&c.status); status&allow == 0 {
+		if status == cacheStatusNil {
+			return ErrBadCache
+		}
+		if status == cacheStatusClosed {
+			return ErrCacheClosed
+		}
+	}
+	return nil
+}
+
+func (c *cache[T]) mw() MetricsWriter {
+	return c.conf.MetricsWriter
+}
+
+func (c *cache[T]) l() Logger {
+	return c.conf.Logger
+}
+
+func (c *cache[T]) init() error {
 	if c.conf == nil {
-		c.err = ErrNoConfig
-		return
+		return ErrNoConfig
 	}
 	if c.conf.Hasher == nil {
-		c.err = ErrNoHasher
-		return
+		return ErrNoHasher
 	}
 	if c.conf.Buckets == 0 {
-		c.err = ErrNoBuckets
-		return
+		return ErrNoBuckets
 	}
 
 	if c.conf.MetricsWriter == nil {
-		c.conf.MetricsWriter = DummyMetrics{}
+		c.conf.MetricsWriter = dummyMW{}
 	}
 
 	if c.conf.Clock == nil {
@@ -72,8 +252,7 @@ func (c *Cache[T]) init() {
 
 	if c.conf.TTLInterval > 0 {
 		if c.conf.TTLInterval < time.Second {
-			c.err = ErrShortTTL
-			return
+			return ErrShortTTL
 		}
 		if c.conf.EvictInterval == 0 {
 			c.conf.EvictInterval = c.conf.TTLInterval / 2
@@ -122,197 +301,6 @@ func (c *Cache[T]) init() {
 			fn()
 		}
 	}
-}
-
-func (c *Cache[T]) Set(key string, value T) error {
-	c.once.Do(c.init)
-	if c.err != nil {
-		return c.err
-	}
-	if err := c.checkCache(cacheStatusActive); err != nil {
-		return err
-	}
-	hkey := c.conf.Hasher.Sum64(key)
-	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
-	return b.set(hkey, value)
-}
-
-func (c *Cache[T]) Get(key string) (T, error) {
-	c.once.Do(c.init)
-	if c.err != nil {
-		return c.null, c.err
-	}
-	if err := c.checkCache(cacheStatusActive); err != nil {
-		return c.null, err
-	}
-	hkey := c.conf.Hasher.Sum64(key)
-	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
-	return b.get(hkey)
-}
-
-func (c *Cache[T]) Delete(key string) error {
-	c.once.Do(c.init)
-	if c.err != nil {
-		return c.err
-	}
-	if err := c.checkCache(cacheStatusActive); err != nil {
-		return err
-	}
-	hkey := c.conf.Hasher.Sum64(key)
-	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
-	return b.delete(hkey)
-}
-
-func (c *Cache[T]) Extract(key string) (T, error) {
-	c.once.Do(c.init)
-	if c.err != nil {
-		return c.null, c.err
-	}
-	if err := c.checkCache(cacheStatusActive); err != nil {
-		return c.null, err
-	}
-	hkey := c.conf.Hasher.Sum64(key)
-	b := &c.buckets[hkey%uint64(c.conf.Buckets)]
-	return b.extract(hkey)
-}
-
-func (c *Cache[T]) Close() error {
-	atomic.StoreUint32(&c.status, cacheStatusClosed)
-	c.conf.Clock.Stop()
-	return c.bulkClose()
-}
-
-func (c *Cache[T]) Reset() error {
-	return c.bulkReset()
-}
-
-func (c *Cache[T]) bulkEvict() error {
-	return c.bulkExec(c.conf.EvictWorkers, "eviction", func(b *bucket[T]) error {
-		return b.evict()
-	})
-}
-
-func (c *Cache[T]) bulkClose() error {
-	return c.bulkExec(c.conf.EvictWorkers, "close", func(b *bucket[T]) error {
-		return b.close()
-	})
-}
-
-func (c *Cache[T]) bulkReset() error {
-	return c.bulkExec(c.conf.EvictWorkers, "reset", func(b *bucket[T]) error {
-		return b.reset()
-	})
-}
-
-func (c *Cache[T]) dump() error {
-	if c.conf.DumpWriter == nil {
-		return ErrOK
-	}
-	if err := c.bulkExec(c.conf.DumpWriteWorkers, "dump", func(b *bucket[T]) error { return b.dump() }); err != nil {
-		return err
-	}
-	return c.conf.DumpWriter.Flush()
-}
-
-func (c *Cache[T]) load() (int, error) {
-	stream := make(chan Entry, c.conf.DumpReadBuffer)
-	var wg sync.WaitGroup
-	for i := uint(0); i < c.conf.DumpReadWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				select {
-				case e, ok := <-stream:
-					if !ok {
-						return
-					}
-					bkt := &c.buckets[e.Key%uint64(c.conf.Buckets)]
-					var t T
-					if err := c.conf.DumpDecoder.Decode(&t, e.Body); err != nil {
-						continue
-					}
-					bkt.svcLock()
-					_ = bkt.setLF(e.Key, t)
-					bkt.svcUnlock()
-					c.mw().Load(bkt.id)
-				}
-			}
-		}()
-	}
-
-	var lc int
-	for {
-		e, err := c.conf.DumpReader.Read()
-		if err != nil {
-			close(stream)
-			if err != io.EOF && c.l() != nil {
-				c.l().Printf("dump load interrupt due to error: %s", err.Error())
-			}
-			break
-		}
-		stream <- e
-		lc++
-	}
-
-	wg.Wait()
-
-	return lc, nil
-}
-
-func (c *Cache[T]) bulkExec(workers uint, op string, fn func(b *bucket[T]) error) error {
-	if workers == 0 || workers > c.conf.Buckets {
-		workers = c.conf.Buckets
-	}
-	bucketQueue := make(chan uint, workers)
-	var wg sync.WaitGroup
-	for i := uint(0); i < workers; i++ {
-		wg.Add(1)
-		go func(i uint) {
-			defer wg.Done()
-			for {
-				if idx, ok := <-bucketQueue; ok {
-					bkt := &c.buckets[idx]
-					if err := fn(bkt); err != nil && c.l() != nil {
-						c.l().Printf("bucket #%d: %s failed with error '%s'\n", idx, op, err.Error())
-					}
-					continue
-				}
-				break
-			}
-		}(i)
-	}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := uint(0); i < c.conf.Buckets; i++ {
-			bucketQueue <- i
-		}
-		close(bucketQueue)
-	}()
-
-	wg.Wait()
 
 	return nil
-}
-
-func (c *Cache[T]) checkCache(allow uint32) error {
-	if status := atomic.LoadUint32(&c.status); status&allow == 0 {
-		if status == cacheStatusNil {
-			return ErrBadCache
-		}
-		if status == cacheStatusClosed {
-			return ErrCacheClosed
-		}
-	}
-	return nil
-}
-
-func (c *Cache[T]) mw() MetricsWriter {
-	return c.conf.MetricsWriter
-}
-
-func (c *Cache[T]) l() Logger {
-	return c.conf.Logger
 }

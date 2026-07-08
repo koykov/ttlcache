@@ -13,3 +13,15 @@ type MetricsWriter interface {
 	Dump(bucket string)
 	Load(bucket string)
 }
+
+type dummyMW struct{}
+
+func (dummyMW) Set(_ string, _ time.Duration) {}
+func (dummyMW) Hit(_ string, _ time.Duration) {}
+func (dummyMW) Del(_ string)                  {}
+func (dummyMW) Miss(_ string)                 {}
+func (dummyMW) Expire(_ string)               {}
+func (dummyMW) Overflow(_ string)             {}
+func (dummyMW) Evict(_ string)                {}
+func (dummyMW) Dump(_ string)                 {}
+func (dummyMW) Load(_ string)                 {}

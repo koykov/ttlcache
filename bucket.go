@@ -3,7 +3,7 @@ package ttlcache
 import (
 	"sync"
 
-	"github.com/koykov/bytealg"
+	"github.com/koykov/simd/memcpy"
 )
 
 type bucket[T any] struct {
@@ -138,9 +138,10 @@ func (b *bucket[T]) dump() (err error) {
 		b.bbuf, _, _ = b.conf.DumpEncoder.Encode(b.bbuf[:0], e.payload)
 		oe := Entry{
 			Key:    e.hkey,
-			Body:   bytealg.Copy(b.bbuf),
+			Body:   make([]byte, len(b.bbuf)),
 			Expire: uint32(e.timestamp),
 		}
+		memcpy.Copy(oe.Body, b.bbuf)
 		if _, err = b.conf.DumpWriter.Write(oe); err != nil {
 			return err
 		}

@@ -24,9 +24,7 @@ func getTestBody(i int) []byte {
 }
 
 func TestWriter(t *testing.T) {
-	w := Writer{
-		FilePath: "testdata/%Y-%m-%d--%H-%M-%S--%N.bin",
-	}
+	w, _ := NewWriter(0, "testdata/%Y-%m-%d--%H-%M-%S--%N.bin")
 	for i := 0; i < 100; i++ {
 		body := getTestBody(i)
 		e := ttlcache.Entry{

@@ -13,18 +13,19 @@ import (
 	"github.com/koykov/ttlcache"
 )
 
+type Writer interface {
+	Write(entry ttlcache.Entry) (int, error)
+	Flush() error
+}
+
 const defaultBlockSIze = 4096
 
-type Writer struct {
-	Buffer   uint64
-	FilePath string
-
-	once sync.Once
-	bs   uint64
-	fp   string
-	fd   string
-	ft   string
-	bsz  int64
+type writer struct {
+	bs  uint64
+	fp  string
+	fd  string
+	ft  string
+	bsz int64
 
 	mux sync.Mutex
 	f   *os.File
@@ -33,13 +34,18 @@ type Writer struct {
 	err error
 }
 
-func (w *Writer) Write(entry ttlcache.Entry) (n int, err error) {
-	w.once.Do(w.init)
-	if w.err != nil {
-		err = w.err
-		return
+func NewWriter(bufferSize uint64, filepath string) (Writer, error) {
+	w := &writer{
+		bs: bufferSize,
+		fp: filepath,
 	}
+	if err := w.init(); err != nil {
+		return nil, err
+	}
+	return w, nil
+}
 
+func (w *writer) Write(entry ttlcache.Entry) (n int, err error) {
 	w.mux.Lock()
 	defer w.mux.Unlock()
 
@@ -68,12 +74,7 @@ func (w *Writer) Write(entry ttlcache.Entry) (n int, err error) {
 	return
 }
 
-func (w *Writer) Flush() (err error) {
-	w.once.Do(w.init)
-	if w.err != nil {
-		return w.err
-	}
-
+func (w *writer) Flush() (err error) {
 	w.mux.Lock()
 	defer w.mux.Unlock()
 
@@ -92,28 +93,25 @@ func (w *Writer) Flush() (err error) {
 	return
 }
 
-func (w *Writer) init() {
+func (w *writer) init() error {
 	w.err = nil
-	if len(w.FilePath) == 0 {
-		w.err = ErrNoFilePath
-		return
+	if len(w.fp) == 0 {
+		return ErrNoFilePath
 	}
-	dir := filepath.Dir(w.FilePath)
+	dir := filepath.Dir(w.fp)
 	if !isDirWR(dir) {
-		w.err = ErrDirNoWR
-		return
+		return ErrDirNoWR
 	}
 	if w.bsz = blockSizeOf(dir); w.bsz == 0 {
 		w.bsz = defaultBlockSIze
 	}
-
-	w.fp = w.FilePath
-	if w.bs = w.Buffer; w.bs > 0 {
+	if w.bs > 0 {
 		w.buf = make([]byte, 0, w.bs)
 	}
+	return nil
 }
 
-func (w *Writer) flushBuf() (err error) {
+func (w *writer) flushBuf() (err error) {
 	if w.f == nil {
 		buf := make([]byte, 0, len(w.fp)*2)
 		if buf, err = clock.AppendFormat(buf, w.fp, time.Now()); err != nil {

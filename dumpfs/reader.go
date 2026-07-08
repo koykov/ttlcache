@@ -10,22 +10,31 @@ import (
 	"github.com/koykov/ttlcache"
 )
 
-type Reader struct {
-	FilePath string
-	OnEOF    OnEOF
+type Reader interface {
+	Read() (ttlcache.Entry, error)
+}
 
-	once sync.Once
-	fp   string
-	eof  func(string) error
+type reader struct {
+	fp  string
+	eof func(string) error
 
 	mux sync.Mutex
 	f   *os.File
 	buf []byte
 }
 
-func (r *Reader) Read() (e ttlcache.Entry, err error) {
-	r.once.Do(r.init)
+func NewReader(filepath string, onEOF OnEOF) (Reader, error) {
+	r := &reader{
+		fp:  filepath,
+		eof: onEOF,
+	}
+	if r.eof == nil {
+		r.eof = os.Remove
+	}
+	return r, nil
+}
 
+func (r *reader) Read() (e ttlcache.Entry, err error) {
 	r.mux.Lock()
 	defer func() {
 		err = r.checkEOF(err)
@@ -74,15 +83,7 @@ func (r *Reader) Read() (e ttlcache.Entry, err error) {
 	return
 }
 
-func (r *Reader) init() {
-	r.fp = r.FilePath
-	if r.OnEOF == nil {
-		r.OnEOF = os.Remove
-	}
-	r.eof = r.OnEOF
-}
-
-func (r *Reader) checkEOF(err error) error {
+func (r *reader) checkEOF(err error) error {
 	if err == io.EOF {
 		_ = r.f.Close()
 		_ = r.eof(r.fp)

@@ -1,6 +1,6 @@
 module github.com/koykov/ttlcache
 
-go 1.18
+go 1.22
 
 require (
 	github.com/koykov/bytealg v1.0.8-0.20251031201802-4eb0aa96e1e9

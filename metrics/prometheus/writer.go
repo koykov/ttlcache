@@ -30,12 +30,15 @@ type Writer struct {
 	prec time.Duration
 }
 
-func NewWriter(key string) *Writer {
-	return NewWriterWP(key, time.Nanosecond)
-}
-
-func NewWriterWP(key string, precision time.Duration) *Writer {
-	return &Writer{key: key, prec: precision}
+func NewWriter(key string, options ...Option) *Writer {
+	w := &Writer{key: key}
+	for _, fn := range options {
+		fn(w)
+	}
+	if w.prec == 0 {
+		w.prec = time.Nanosecond
+	}
+	return w
 }
 
 func (w Writer) Set(bucket string, dur time.Duration) {

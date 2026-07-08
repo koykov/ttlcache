@@ -25,13 +25,25 @@ const (
 	dumpIOLoad = "load"
 )
 
-type Writer struct {
+type Writer interface {
+	Set(bucket string, dur time.Duration)
+	Hit(bucket string, dur time.Duration)
+	Del(bucket string)
+	Miss(bucket string)
+	Expire(bucket string)
+	Overflow(bucket string)
+	Evict(bucket string)
+	Dump(bucket string)
+	Load(bucket string)
+}
+
+type writer struct {
 	key  string
 	prec time.Duration
 }
 
-func NewWriter(key string, options ...Option) *Writer {
-	w := &Writer{key: key}
+func NewWriter(key string, options ...Option) Writer {
+	w := &writer{key: key}
 	for _, fn := range options {
 		fn(w)
 	}
@@ -41,7 +53,7 @@ func NewWriter(key string, options ...Option) *Writer {
 	return w
 }
 
-func (w Writer) Set(bucket string, dur time.Duration) {
+func (w writer) Set(bucket string, dur time.Duration) {
 	vmchain.Gauge("ttlcache_size", nil).
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
@@ -56,7 +68,7 @@ func (w Writer) Set(bucket string, dur time.Duration) {
 		WithLabel("op", speedWrite).Update(float64(dur.Nanoseconds() / int64(w.prec)))
 }
 
-func (w Writer) Hit(bucket string, dur time.Duration) {
+func (w writer) Hit(bucket string, dur time.Duration) {
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
@@ -67,7 +79,7 @@ func (w Writer) Hit(bucket string, dur time.Duration) {
 		WithLabel("op", speedRead).Update(float64(dur.Nanoseconds() / int64(w.prec)))
 }
 
-func (w Writer) Del(bucket string) {
+func (w writer) Del(bucket string) {
 	vmchain.Gauge("ttlcache_size", nil).
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
@@ -78,28 +90,28 @@ func (w Writer) Del(bucket string) {
 		WithLabel("op", cacheIODel).Inc()
 }
 
-func (w Writer) Miss(bucket string) {
+func (w writer) Miss(bucket string) {
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
 		WithLabel("op", cacheIOMiss).Inc()
 }
 
-func (w Writer) Expire(bucket string) {
+func (w writer) Expire(bucket string) {
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
 		WithLabel("op", cacheIOExpire).Inc()
 }
 
-func (w Writer) Overflow(bucket string) {
+func (w writer) Overflow(bucket string) {
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
 		WithLabel("op", cacheIONoSpace).Inc()
 }
 
-func (w Writer) Evict(bucket string) {
+func (w writer) Evict(bucket string) {
 	vmchain.Gauge("ttlcache_size", nil).
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
@@ -110,14 +122,14 @@ func (w Writer) Evict(bucket string) {
 		WithLabel("op", cacheIOEvict).Inc()
 }
 
-func (w Writer) Dump(bucket string) {
+func (w writer) Dump(bucket string) {
 	vmchain.Counter("ttlcache_dump_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
 		WithLabel("op", dumpIODump).Inc()
 }
 
-func (w Writer) Load(bucket string) {
+func (w writer) Load(bucket string) {
 	vmchain.Counter("ttlcache_dump_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).

@@ -25,13 +25,25 @@ const (
 	dumpIOLoad = "load"
 )
 
-type Writer struct {
+type Writer interface {
+	Set(bucket string, dur time.Duration)
+	Hit(bucket string, dur time.Duration)
+	Del(bucket string)
+	Miss(bucket string)
+	Expire(bucket string)
+	Overflow(bucket string)
+	Evict(bucket string)
+	Dump(bucket string)
+	Load(bucket string)
+}
+
+type writer struct {
 	key  string
 	prec time.Duration
 }
 
-func NewWriter(key string, options ...Option) *Writer {
-	w := &Writer{key: key}
+func NewWriter(key string, options ...Option) Writer {
+	w := &writer{key: key}
 	for _, fn := range options {
 		fn(w)
 	}
@@ -41,44 +53,44 @@ func NewWriter(key string, options ...Option) *Writer {
 	return w
 }
 
-func (w Writer) Set(bucket string, dur time.Duration) {
+func (w writer) Set(bucket string, dur time.Duration) {
 	size.WithLabelValues(w.key, bucket, cacheTotal).Inc()
 	io.WithLabelValues(w.key, bucket, cacheIOSet).Inc()
 	speed.WithLabelValues(w.key, bucket, speedWrite).Observe(float64(dur.Nanoseconds() / int64(w.prec)))
 }
 
-func (w Writer) Hit(bucket string, dur time.Duration) {
+func (w writer) Hit(bucket string, dur time.Duration) {
 	io.WithLabelValues(w.key, bucket, cacheIOHit).Inc()
 	speed.WithLabelValues(w.key, bucket, speedRead).Observe(float64(dur.Nanoseconds() / int64(w.prec)))
 }
 
-func (w Writer) Del(bucket string) {
+func (w writer) Del(bucket string) {
 	size.WithLabelValues(w.key, bucket, cacheDelete).Inc()
 	io.WithLabelValues(w.key, bucket, cacheIODel).Inc()
 }
 
-func (w Writer) Miss(bucket string) {
+func (w writer) Miss(bucket string) {
 	io.WithLabelValues(w.key, bucket, cacheIOMiss).Inc()
 }
 
-func (w Writer) Expire(bucket string) {
+func (w writer) Expire(bucket string) {
 	io.WithLabelValues(w.key, bucket, cacheIOExpire).Inc()
 }
 
-func (w Writer) Overflow(bucket string) {
+func (w writer) Overflow(bucket string) {
 	io.WithLabelValues(w.key, bucket, cacheIONoSpace).Inc()
 }
 
-func (w Writer) Evict(bucket string) {
+func (w writer) Evict(bucket string) {
 	size.WithLabelValues(w.key, bucket, cacheTotal).Dec()
 	io.WithLabelValues(w.key, bucket, cacheIOEvict).Inc()
 }
 
-func (w Writer) Dump(bucket string) {
+func (w writer) Dump(bucket string) {
 	dumpIO.WithLabelValues(w.key, bucket, dumpIODump).Inc()
 }
 
-func (w Writer) Load(bucket string) {
+func (w writer) Load(bucket string) {
 	dumpIO.WithLabelValues(w.key, bucket, dumpIOLoad).Inc()
 }
 

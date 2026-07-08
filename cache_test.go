@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/koykov/byteconv"
-	"github.com/koykov/hash/fnv"
 )
 
 type testEntry struct {
@@ -16,7 +15,7 @@ func TestCache(t *testing.T) {
 	t.Run("delete", func(t *testing.T) {
 		cache, err := New[testEntry](&Config[testEntry]{
 			Buckets:     4,
-			Hasher:      &fnv.Hasher{},
+			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
 		if err != nil {
@@ -35,7 +34,7 @@ func TestCache(t *testing.T) {
 	t.Run("extract", func(t *testing.T) {
 		cache, err := New[testEntry](&Config[testEntry]{
 			Buckets:     4,
-			Hasher:      &fnv.Hasher{},
+			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
 		if err != nil {
@@ -57,7 +56,7 @@ func TestCache(t *testing.T) {
 	t.Run("reset", func(t *testing.T) {
 		cache, err := New[testEntry](&Config[testEntry]{
 			Buckets:     4,
-			Hasher:      &fnv.Hasher{},
+			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
 		if err != nil {
@@ -79,7 +78,7 @@ func TestCache(t *testing.T) {
 	t.Run("close", func(t *testing.T) {
 		cache, err := New[testEntry](&Config[testEntry]{
 			Buckets:     4,
-			Hasher:      &fnv.Hasher{},
+			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
 		if err != nil {
@@ -101,7 +100,7 @@ func TestIO(t *testing.T) {
 	testIO := func(t *testing.T, entries int, verbose bool) {
 		cache, err := New[testEntry](&Config[testEntry]{
 			Buckets:     4,
-			Hasher:      &fnv.Hasher{},
+			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
 		if err != nil {

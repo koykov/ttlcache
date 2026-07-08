@@ -8,7 +8,5 @@ github.com/koykov/clock v1.1.6 h1:xq5grJGUrodu/pGgkPG5cYAC2Bg4WNn36Ze8i+eu1fE=
 github.com/koykov/clock v1.1.6/go.mod h1:1zTU4L5nvZcSPKpO17TCNAGs6osqhjbAm5XugPXXv+0=
 github.com/koykov/entry v1.0.3-0.20260627093717-53374144eb45 h1:Q/ikLM/C6v/qBo4wl1cJ990F2mNta8DUmO0ZlBeRU6I=
 github.com/koykov/entry v1.0.3-0.20260627093717-53374144eb45/go.mod h1:WmCy/YM0sPb4ETL9wYY0OJwO89KJ7qeQPGOwLUG4rZU=
-github.com/koykov/hash v1.0.6-0.20260404140832-03104befa38e h1:V4V1elgXbARvTgEgfTYg+uy8ZqFNHs+rmwgPfoRvZgw=
-github.com/koykov/hash v1.0.6-0.20260404140832-03104befa38e/go.mod h1:G+yDmfd72sOLN1tTHs+wDJD+1Ps8bAFSZx2TIrgjvHE=
 github.com/koykov/x2bytes v1.0.3 h1:AQTQ2cwSGAXj+J/s6wJF1kzMyJeo3DRtt4MCeHS9ijg=
 github.com/koykov/x2bytes v1.0.3/go.mod h1:0fbvyQAm3RAiTOE/NT0Dg3ZXL9EQiYpyrp5wZyoz11Q=

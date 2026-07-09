@@ -8,7 +8,7 @@ import (
 
 const (
 	cacheTotal  = "total"
-	cacheDelete = "delete"
+	cacheExpire = "expire"
 
 	cacheIOSet     = "set"
 	cacheIOEvict   = "evict"
@@ -83,7 +83,7 @@ func (w writer) Del(bucket string) {
 	vmchain.Gauge("ttlcache_size", nil).
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
-		WithLabel("type", cacheDelete).Inc()
+		WithLabel("type", cacheTotal).Dec()
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
@@ -98,6 +98,10 @@ func (w writer) Miss(bucket string) {
 }
 
 func (w writer) Expire(bucket string) {
+	vmchain.Gauge("ttlcache_size", nil).
+		WithLabel("cache", w.key).
+		WithLabel("bucket", bucket).
+		WithLabel("type", cacheExpire).Inc()
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
@@ -116,6 +120,10 @@ func (w writer) Evict(bucket string) {
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
 		WithLabel("type", cacheTotal).Dec()
+	vmchain.Gauge("ttlcache_size", nil).
+		WithLabel("cache", w.key).
+		WithLabel("bucket", bucket).
+		WithLabel("type", cacheExpire).Dec()
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).

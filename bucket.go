@@ -112,6 +112,7 @@ func (b *bucket[T]) evict() error {
 	for i := 0; i < len(b.buf); i++ {
 		if now-b.buf[i].timestamp > int64(b.conf.TTLInterval) {
 			b.evictLF(uint(i))
+			c++
 		}
 	}
 	return ErrOK
@@ -119,14 +120,21 @@ func (b *bucket[T]) evict() error {
 
 func (b *bucket[T]) evictLF(idx uint) {
 	l := len(b.buf)
-	old := b.buf[idx].hkey
+	oldHK := b.buf[idx].hkey
+	if idx == uint(l-1) {
+		// Edge case: evict last item.
+		b.buf = b.buf[:l-1]
+		delete(b.idx, oldHK)
+		b.mw().Evict(b.id)
+		return
+	}
+
+	lastHK := b.buf[l-1].hkey
 	b.buf[idx] = b.buf[l-1]
 	b.buf = b.buf[:l-1]
-	if idx < uint(len(b.buf)) {
-		// Edge case: has been deleted last item.
-		b.idx[b.buf[idx].hkey] = idx
-	}
-	delete(b.idx, old)
+	b.idx[lastHK] = idx
+
+	delete(b.idx, oldHK)
 	b.mw().Evict(b.id)
 }
 

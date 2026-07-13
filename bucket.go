@@ -30,7 +30,7 @@ func (b *bucket[T]) setLF(hkey uint64, value T) error {
 		b.buf[i] = entry[T]{
 			payload:   value,
 			hkey:      hkey,
-			timestamp: b.conf.Clock.Now().Add(b.conf.TTLInterval).UnixNano(),
+			timestamp: b.conf.Clock.Now().UnixNano(),
 		}
 		b.mw().Set(b.id, b.clk().Now().Sub(now))
 		return ErrOK
@@ -38,7 +38,7 @@ func (b *bucket[T]) setLF(hkey uint64, value T) error {
 	b.buf = append(b.buf, entry[T]{
 		payload:   value,
 		hkey:      hkey,
-		timestamp: b.conf.Clock.Now().Add(b.conf.TTLInterval).UnixNano(),
+		timestamp: b.conf.Clock.Now().UnixNano(),
 	})
 	b.idx[hkey] = uint(len(b.buf) - 1)
 	b.mw().Set(b.id, b.clk().Now().Sub(now))

@@ -26,22 +26,21 @@ func (b *bucket[T]) set(hkey uint64, value T) error {
 
 func (b *bucket[T]) setLF(hkey uint64, value T) error {
 	now := b.clk().Now()
+	defer b.mw().Set(b.id, b.clk().Now().Sub(now))
 	if i, ok := b.idx[hkey]; ok {
 		b.buf[i] = entry[T]{
 			payload:   value,
 			hkey:      hkey,
-			timestamp: b.conf.Clock.Now().UnixNano(),
+			timestamp: now.UnixNano(),
 		}
-		b.mw().Set(b.id, b.clk().Now().Sub(now))
 		return ErrOK
 	}
 	b.buf = append(b.buf, entry[T]{
 		payload:   value,
 		hkey:      hkey,
-		timestamp: b.conf.Clock.Now().UnixNano(),
+		timestamp: now.UnixNano(),
 	})
 	b.idx[hkey] = uint(len(b.buf) - 1)
-	b.mw().Set(b.id, b.clk().Now().Sub(now))
 	return ErrOK
 }
 
@@ -55,12 +54,12 @@ func (b *bucket[T]) get(hkey uint64) (T, error) {
 	)
 	if i, ok = b.idx[hkey]; ok {
 		e := &b.buf[i]
-		now1 := b.clk().Now()
-		if e.timestamp < now1.UnixNano() {
+		deadline := now.Add(b.conf.TTLInterval).UnixNano()
+		if e.timestamp+deadline < now.UnixNano() {
 			b.mw().Expire(b.id)
 			return b.null, ErrExpire
 		}
-		b.mw().Hit(b.id, now1.Sub(now))
+		b.mw().Hit(b.id, b.clk().Now().Sub(now))
 		return e.payload, nil
 	}
 	b.mw().Miss(b.id)

@@ -52,47 +52,47 @@ func NewWriter(key string, options ...Option) Writer {
 	return w
 }
 
-func (w writer) Set(bucket string, dur time.Duration) {
+func (w *writer) Set(bucket string, dur time.Duration) {
 	size.WithLabelValues(w.key, bucket).Inc()
 	io.WithLabelValues(w.key, bucket, cacheIOSet).Inc()
 	speed.WithLabelValues(w.key, bucket, speedWrite).Observe(float64(dur.Nanoseconds() / int64(w.prec)))
 }
 
-func (w writer) Hit(bucket string, dur time.Duration) {
+func (w *writer) Hit(bucket string, dur time.Duration) {
 	io.WithLabelValues(w.key, bucket, cacheIOHit).Inc()
 	speed.WithLabelValues(w.key, bucket, speedRead).Observe(float64(dur.Nanoseconds() / int64(w.prec)))
 }
 
-func (w writer) Delete(bucket string) {
+func (w *writer) Delete(bucket string) {
 	io.WithLabelValues(w.key, bucket, cacheIODelete).Inc()
 }
 
-func (w writer) Extract(bucket string) {
+func (w *writer) Extract(bucket string) {
 	io.WithLabelValues(w.key, bucket, cacheIOExtract).Inc()
 }
 
-func (w writer) Miss(bucket string) {
+func (w *writer) Miss(bucket string) {
 	io.WithLabelValues(w.key, bucket, cacheIOMiss).Inc()
 }
 
-func (w writer) Expire(bucket string) {
+func (w *writer) Expire(bucket string) {
 	io.WithLabelValues(w.key, bucket, cacheIOExpire).Inc()
 }
 
-func (w writer) Overflow(bucket string) {
+func (w *writer) Overflow(bucket string) {
 	io.WithLabelValues(w.key, bucket, cacheIONoSpace).Inc()
 }
 
-func (w writer) Evict(bucket string) {
+func (w *writer) Evict(bucket string) {
 	size.WithLabelValues(w.key, bucket).Dec()
 	io.WithLabelValues(w.key, bucket, cacheIOEvict).Inc()
 }
 
-func (w writer) Dump(bucket string) {
+func (w *writer) Dump(bucket string) {
 	dumpIO.WithLabelValues(w.key, bucket, dumpIODump).Inc()
 }
 
-func (w writer) Load(bucket string) {
+func (w *writer) Load(bucket string) {
 	dumpIO.WithLabelValues(w.key, bucket, dumpIOLoad).Inc()
 }
 

@@ -7,14 +7,12 @@ import (
 )
 
 const (
-	cacheTotal  = "total"
-	cacheExpire = "expire"
-
 	cacheIOSet     = "set"
 	cacheIOEvict   = "evict"
 	cacheIOMiss    = "miss"
 	cacheIOHit     = "hit"
-	cacheIODel     = "del"
+	cacheIODelete  = "delete"
+	cacheIOExtract = "extract"
 	cacheIOExpire  = "expire"
 	cacheIONoSpace = "no space"
 
@@ -28,7 +26,8 @@ const (
 type Writer interface {
 	Set(bucket string, dur time.Duration)
 	Hit(bucket string, dur time.Duration)
-	Del(bucket string)
+	Delete(bucket string)
+	Extract(bucket string)
 	Miss(bucket string)
 	Expire(bucket string)
 	Overflow(bucket string)
@@ -56,8 +55,7 @@ func NewWriter(key string, options ...Option) Writer {
 func (w writer) Set(bucket string, dur time.Duration) {
 	vmchain.Gauge("ttlcache_size", nil).
 		WithLabel("cache", w.key).
-		WithLabel("bucket", bucket).
-		WithLabel("type", cacheTotal).Inc()
+		WithLabel("bucket", bucket).Inc()
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
@@ -79,15 +77,18 @@ func (w writer) Hit(bucket string, dur time.Duration) {
 		WithLabel("op", speedRead).Update(float64(dur.Nanoseconds() / int64(w.prec)))
 }
 
-func (w writer) Del(bucket string) {
-	vmchain.Gauge("ttlcache_size", nil).
-		WithLabel("cache", w.key).
-		WithLabel("bucket", bucket).
-		WithLabel("type", cacheTotal).Dec()
+func (w writer) Delete(bucket string) {
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
-		WithLabel("op", cacheIODel).Inc()
+		WithLabel("op", cacheIODelete).Inc()
+}
+
+func (w writer) Extract(bucket string) {
+	vmchain.Counter("ttlcache_io").
+		WithLabel("cache", w.key).
+		WithLabel("bucket", bucket).
+		WithLabel("op", cacheIOExtract).Inc()
 }
 
 func (w writer) Miss(bucket string) {
@@ -98,10 +99,6 @@ func (w writer) Miss(bucket string) {
 }
 
 func (w writer) Expire(bucket string) {
-	vmchain.Gauge("ttlcache_size", nil).
-		WithLabel("cache", w.key).
-		WithLabel("bucket", bucket).
-		WithLabel("type", cacheExpire).Inc()
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
@@ -118,12 +115,7 @@ func (w writer) Overflow(bucket string) {
 func (w writer) Evict(bucket string) {
 	vmchain.Gauge("ttlcache_size", nil).
 		WithLabel("cache", w.key).
-		WithLabel("bucket", bucket).
-		WithLabel("type", cacheTotal).Dec()
-	vmchain.Gauge("ttlcache_size", nil).
-		WithLabel("cache", w.key).
-		WithLabel("bucket", bucket).
-		WithLabel("type", cacheExpire).Dec()
+		WithLabel("bucket", bucket).Dec()
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).

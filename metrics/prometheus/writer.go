@@ -7,14 +7,12 @@ import (
 )
 
 const (
-	cacheTotal  = "total"
-	cacheDelete = "delete"
-
 	cacheIOSet     = "set"
 	cacheIOEvict   = "evict"
 	cacheIOMiss    = "miss"
 	cacheIOHit     = "hit"
-	cacheIODel     = "del"
+	cacheIODelete  = "delete"
+	cacheIOExtract = "extract"
 	cacheIOExpire  = "expire"
 	cacheIONoSpace = "no space"
 
@@ -28,7 +26,8 @@ const (
 type Writer interface {
 	Set(bucket string, dur time.Duration)
 	Hit(bucket string, dur time.Duration)
-	Del(bucket string)
+	Delete(bucket string)
+	Extract(bucket string)
 	Miss(bucket string)
 	Expire(bucket string)
 	Overflow(bucket string)
@@ -54,7 +53,7 @@ func NewWriter(key string, options ...Option) Writer {
 }
 
 func (w writer) Set(bucket string, dur time.Duration) {
-	size.WithLabelValues(w.key, bucket, cacheTotal).Inc()
+	size.WithLabelValues(w.key, bucket).Inc()
 	io.WithLabelValues(w.key, bucket, cacheIOSet).Inc()
 	speed.WithLabelValues(w.key, bucket, speedWrite).Observe(float64(dur.Nanoseconds() / int64(w.prec)))
 }
@@ -64,9 +63,12 @@ func (w writer) Hit(bucket string, dur time.Duration) {
 	speed.WithLabelValues(w.key, bucket, speedRead).Observe(float64(dur.Nanoseconds() / int64(w.prec)))
 }
 
-func (w writer) Del(bucket string) {
-	size.WithLabelValues(w.key, bucket, cacheDelete).Inc()
-	io.WithLabelValues(w.key, bucket, cacheIODel).Inc()
+func (w writer) Delete(bucket string) {
+	io.WithLabelValues(w.key, bucket, cacheIODelete).Inc()
+}
+
+func (w writer) Extract(bucket string) {
+	io.WithLabelValues(w.key, bucket, cacheIOExtract).Inc()
 }
 
 func (w writer) Miss(bucket string) {
@@ -82,7 +84,7 @@ func (w writer) Overflow(bucket string) {
 }
 
 func (w writer) Evict(bucket string) {
-	size.WithLabelValues(w.key, bucket, cacheTotal).Dec()
+	size.WithLabelValues(w.key, bucket).Dec()
 	io.WithLabelValues(w.key, bucket, cacheIOEvict).Inc()
 }
 
@@ -104,7 +106,7 @@ func init() {
 	size = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ttlcache_size",
 		Help: "Total, used and free cache (bucket) size in bytes.",
-	}, []string{"cache", "bucket", "type"})
+	}, []string{"cache", "bucket"})
 	io = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "ttlcache_io",
 		Help: "Count cache IO operations calls.",

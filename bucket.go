@@ -71,7 +71,7 @@ func (b *bucket[T]) delete(hkey uint64) error {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 	if idx, ok := b.idx[hkey]; ok {
-		b.evictLF(idx)
+		b.evictLF(idx, b.mw().Delete)
 	}
 	return ErrOK
 }
@@ -92,7 +92,7 @@ func (b *bucket[T]) extract(hkey uint64) (T, error) {
 			return b.null, ErrExpire
 		}
 		b.mw().Hit(b.id, now1.Sub(now))
-		b.evictLF(i)
+		b.evictLF(i, b.mw().Extract)
 		return e.payload, nil
 	}
 	b.mw().Miss(b.id)
@@ -111,14 +111,14 @@ func (b *bucket[T]) evict() error {
 	}()
 	for i := 0; i < len(b.buf); i++ {
 		if now-b.buf[i].timestamp > int64(b.conf.TTLInterval) {
-			b.evictLF(uint(i))
+			b.evictLF(uint(i), b.mw().Evict)
 			c++
 		}
 	}
 	return ErrOK
 }
 
-func (b *bucket[T]) evictLF(idx uint) {
+func (b *bucket[T]) evictLF(idx uint, metricfn func(string)) {
 	l := len(b.buf)
 	oldHK := b.buf[idx].hkey
 	if idx == uint(l-1) {
@@ -135,7 +135,7 @@ func (b *bucket[T]) evictLF(idx uint) {
 	b.idx[lastHK] = idx
 
 	delete(b.idx, oldHK)
-	b.mw().Evict(b.id)
+	metricfn(b.id)
 }
 
 func (b *bucket[T]) dump() (err error) {
@@ -173,7 +173,7 @@ func (b *bucket[T]) close() error {
 	defer b.mux.Unlock()
 	for _, v := range b.idx {
 		_ = v
-		b.mw().Del(b.id)
+		b.mw().Delete(b.id)
 	}
 	b.buf, b.idx = nil, nil
 	return ErrOK

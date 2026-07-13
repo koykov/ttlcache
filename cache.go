@@ -129,7 +129,7 @@ func (c *cache[T]) load() (int, error) {
 						continue
 					}
 					bkt.svcLock()
-					_ = bkt.setLF(e.Key, t)
+					_ = bkt.setLF(e.Key, t, int64(e.Expire))
 					bkt.svcUnlock()
 					c.mw().Load(bkt.id)
 				}

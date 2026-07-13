@@ -21,24 +21,27 @@ type bucket[T any] struct {
 func (b *bucket[T]) set(hkey uint64, value T) error {
 	b.mux.Lock()
 	defer b.mux.Unlock()
-	return b.setLF(hkey, value)
+	return b.setLF(hkey, value, -1)
 }
 
-func (b *bucket[T]) setLF(hkey uint64, value T) error {
+func (b *bucket[T]) setLF(hkey uint64, value T, timestamp int64) error {
 	now := b.clk().Now()
 	defer b.mw().Set(b.id, b.clk().Now().Sub(now))
+	if timestamp < 0 {
+		timestamp = now.UnixNano()
+	}
 	if i, ok := b.idx[hkey]; ok {
 		b.buf[i] = entry[T]{
 			payload:   value,
 			hkey:      hkey,
-			timestamp: now.UnixNano(),
+			timestamp: timestamp,
 		}
 		return ErrOK
 	}
 	b.buf = append(b.buf, entry[T]{
 		payload:   value,
 		hkey:      hkey,
-		timestamp: now.UnixNano(),
+		timestamp: timestamp,
 	})
 	b.idx[hkey] = uint(len(b.buf) - 1)
 	return ErrOK

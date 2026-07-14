@@ -64,10 +64,12 @@ func (w *writer) Hit(bucket string, dur time.Duration) {
 }
 
 func (w *writer) Delete(bucket string) {
+	size.WithLabelValues(w.key, bucket).Dec()
 	io.WithLabelValues(w.key, bucket, cacheIODelete).Inc()
 }
 
 func (w *writer) Extract(bucket string) {
+	size.WithLabelValues(w.key, bucket).Dec()
 	io.WithLabelValues(w.key, bucket, cacheIOExtract).Inc()
 }
 

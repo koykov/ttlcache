@@ -127,7 +127,7 @@ func (b *bucket[T]) evictLF(idx uint, metricfn func(string)) {
 		// Edge case: evict last item.
 		b.buf = b.buf[:l-1]
 		delete(b.idx, oldHK)
-		b.mw().Evict(b.id)
+		metricfn(b.id)
 		return
 	}
 

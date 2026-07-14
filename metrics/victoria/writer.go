@@ -78,6 +78,9 @@ func (w *writer) Hit(bucket string, dur time.Duration) {
 }
 
 func (w *writer) Delete(bucket string) {
+	vmchain.Gauge("ttlcache_size", nil).
+		WithLabel("cache", w.key).
+		WithLabel("bucket", bucket).Dec()
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).
@@ -85,6 +88,9 @@ func (w *writer) Delete(bucket string) {
 }
 
 func (w *writer) Extract(bucket string) {
+	vmchain.Gauge("ttlcache_size", nil).
+		WithLabel("cache", w.key).
+		WithLabel("bucket", bucket).Dec()
 	vmchain.Counter("ttlcache_io").
 		WithLabel("cache", w.key).
 		WithLabel("bucket", bucket).

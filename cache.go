@@ -2,6 +2,7 @@ package ttlcache
 
 import (
 	"io"
+	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -29,6 +30,7 @@ func New[T any](conf *Config[T]) (Cache[T], error) {
 		status: cacheStatusActive,
 		conf:   conf.Copy(),
 	}
+	c.null = c.ensureValue(c.null)
 
 	if err := c.init(); err != nil {
 		return nil, err
@@ -125,6 +127,7 @@ func (c *cache[T]) load() (int, error) {
 					}
 					bkt := &c.buckets[e.Key%uint64(c.conf.Buckets)]
 					var t T
+					t = c.ensureValue(t)
 					if err := c.conf.DumpDecoder.Decode(&t, e.Body); err != nil {
 						continue
 					}
@@ -303,4 +306,13 @@ func (c *cache[T]) init() error {
 	}
 
 	return nil
+}
+
+func (c *cache[T]) ensureValue(t T) T {
+	typ := reflect.TypeOf(t)
+	if typ != nil && typ.Kind() == reflect.Ptr {
+		newPtr := reflect.New(typ.Elem())
+		return newPtr.Interface().(T)
+	}
+	return t
 }

@@ -12,4 +12,5 @@ var (
 	ErrShortTTL          = errors.New("TTL must be greater than one second")
 	ErrNotFound          = errors.New("entry not found")
 	ErrExpire            = errors.New("entry expired")
+	ErrOverflow          = errors.New("cache overflow")
 )

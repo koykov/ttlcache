@@ -25,6 +25,11 @@ func (b *bucket[T]) set(hkey uint64, value T) error {
 }
 
 func (b *bucket[T]) setLF(hkey uint64, value T, timestamp int64) error {
+	if uint64(len(b.idx)) > b.size {
+		defer b.mw().Overflow(b.id)
+		return ErrOverflow
+	}
+
 	now := b.clk().Now()
 	defer b.mw().Set(b.id, b.clk().Now().Sub(now))
 	if timestamp < 0 {

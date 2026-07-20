@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/koykov/byteconv"
+	"github.com/stretchr/testify/assert"
 )
 
 type testEntry struct {
@@ -18,18 +19,13 @@ func TestCache(t *testing.T) {
 			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
-		if err != nil {
-			t.Error(err)
-		}
-		if err = cache.Set("foo", testEntry{p: []byte("foobar")}); err != nil {
-			t.Error(err)
-		}
-		if err = cache.Delete("foo"); err != nil {
-			t.Error(err)
-		}
-		if err = cache.Close(); err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
+		err = cache.Set("foo", testEntry{p: []byte("foobar")})
+		assert.NoError(t, err)
+		err = cache.Delete("foo")
+		assert.NoError(t, err)
+		err = cache.Close()
+		assert.NoError(t, err)
 	})
 	t.Run("extract", func(t *testing.T) {
 		cache, err := New[testEntry](&Config[testEntry]{
@@ -37,21 +33,15 @@ func TestCache(t *testing.T) {
 			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
-		if err != nil {
-			t.Error(err)
-		}
-		if err = cache.Set("foo", testEntry{p: []byte("foobar")}); err != nil {
-			t.Error(err)
-		}
-		if _, err = cache.Extract("foo"); err != nil {
-			t.Error(err)
-		}
-		if _, err = cache.Get("foo"); err != ErrNotFound {
-			t.Error(err)
-		}
-		if err = cache.Close(); err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
+		err = cache.Set("foo", testEntry{p: []byte("foobar")})
+		assert.NoError(t, err)
+		_, err = cache.Extract("foo")
+		assert.NoError(t, err)
+		_, err = cache.Get("foo")
+		assert.ErrorIs(t, err, ErrNotFound)
+		err = cache.Close()
+		assert.NoError(t, err)
 	})
 	t.Run("reset", func(t *testing.T) {
 		cache, err := New[testEntry](&Config[testEntry]{
@@ -59,21 +49,15 @@ func TestCache(t *testing.T) {
 			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
-		if err != nil {
-			t.Error(err)
-		}
-		if err = cache.Set("foo", testEntry{p: []byte("foobar")}); err != nil {
-			t.Error(err)
-		}
-		if err = cache.Reset(); err != nil {
-			t.Error(err)
-		}
-		if _, err = cache.Get("foo"); err != ErrNotFound {
-			t.Error(err)
-		}
-		if err = cache.Close(); err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
+		err = cache.Set("foo", testEntry{p: []byte("foobar")})
+		assert.NoError(t, err)
+		err = cache.Reset()
+		assert.NoError(t, err)
+		_, err = cache.Get("foo")
+		assert.ErrorIs(t, err, ErrNotFound)
+		err = cache.Close()
+		assert.NoError(t, err)
 	})
 	t.Run("close", func(t *testing.T) {
 		cache, err := New[testEntry](&Config[testEntry]{
@@ -81,18 +65,13 @@ func TestCache(t *testing.T) {
 			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
-		if err != nil {
-			t.Error(err)
-		}
-		if err = cache.Set("foo", testEntry{p: []byte("foobar")}); err != nil {
-			t.Error(err)
-		}
-		if err = cache.Close(); err != nil {
-			t.Error(err)
-		}
-		if _, err = cache.Get("foo"); err != ErrCacheClosed {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
+		err = cache.Set("foo", testEntry{p: []byte("foobar")})
+		assert.NoError(t, err)
+		err = cache.Close()
+		assert.NoError(t, err)
+		_, err = cache.Get("foo")
+		assert.ErrorIs(t, err, ErrCacheClosed)
 	})
 }
 
@@ -103,9 +82,7 @@ func TestIO(t *testing.T) {
 			Hasher:      testHasher{},
 			TTLInterval: time.Minute,
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 
 		var (
 			key []byte

@@ -112,7 +112,7 @@ func TestIO(t *testing.T) {
 				}
 				continue
 			}
-			assertBytes(t, getEntryBody(i), dst.(testEntry).p)
+			assert.Equal(t, getEntryBody(i), dst.(testEntry).p)
 		}
 
 		if verbose {

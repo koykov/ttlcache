@@ -3,6 +3,8 @@ package ttlcache
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConfig(t *testing.T) {
@@ -12,8 +14,6 @@ func TestConfig(t *testing.T) {
 		}
 		cpy := conf.Copy()
 		conf.TTLInterval = 30 * time.Second
-		if cpy.TTLInterval != time.Minute {
-			t.Error("config copy failed")
-		}
+		assert.Equal(t, time.Minute, cpy.TTLInterval)
 	})
 }

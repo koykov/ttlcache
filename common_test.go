@@ -1,10 +1,6 @@
 package ttlcache
 
-import (
-	"bytes"
-	"strconv"
-	"testing"
-)
+import "strconv"
 
 var (
 	dataPool = [][]byte{
@@ -26,11 +22,4 @@ func makeKey(dst []byte, i int) []byte {
 
 func getEntryBody(i int) []byte {
 	return dataPool[i%dpLen]
-}
-
-func assertBytes(t testing.TB, a, b []byte) (eq bool) {
-	if eq = bytes.Equal(a, b); !eq {
-		t.Errorf("bytes equal fail:\nneed: %s\ngot:  %s", a, b)
-	}
-	return
 }

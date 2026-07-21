@@ -1,12 +1,11 @@
 package dumpfs
 
 import (
-	"bytes"
 	"io"
 	"math"
 	"testing"
 
-	"github.com/koykov/ttlcache"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestReader(t *testing.T) {
@@ -16,19 +15,8 @@ func TestReader(t *testing.T) {
 		if err == io.EOF {
 			break
 		}
-		if !assertEntry(e) {
-			t.FailNow()
-		}
+		exp := getTestBody(int(e.Key))
+		assert.Equal(t, exp, e.Body)
+		assert.NotEqual(t, math.MaxUint32, e.Expire)
 	}
-}
-
-func assertEntry(e ttlcache.Entry) bool {
-	exp := getTestBody(int(e.Key))
-	if !bytes.Equal(exp, e.Body) {
-		return false
-	}
-	if e.Expire != math.MaxUint32 {
-		return false
-	}
-	return true
 }

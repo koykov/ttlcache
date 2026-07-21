@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/koykov/ttlcache"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -33,11 +34,8 @@ func TestWriter(t *testing.T) {
 			Expire: math.MaxUint32,
 		}
 		_, err := w.Write(e)
-		if err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
 	}
-	if err := w.Flush(); err != nil {
-		t.Error(err)
-	}
+	err := w.Flush()
+	assert.NoError(t, err)
 }
